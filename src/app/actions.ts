@@ -12,8 +12,11 @@ export async function fetchAndAnalyzeNews(ticker: string): Promise<{ message?: s
 
   try {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const appId = process.env.NEXT_PUBLIC_APP_ID || '__app_id';
+    const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
+
     const existingData = await db
-      .collectionGroup("financial_news_sentiment")
+      .collection(collectionPath)
       .where("ticker", "==", upperCaseTicker)
       .where("timestamp", ">=", twentyFourHoursAgo)
       .limit(1)
