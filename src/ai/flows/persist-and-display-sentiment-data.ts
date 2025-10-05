@@ -44,7 +44,7 @@ const sentimentAnalysisPrompt = ai.definePrompt({
   input: { schema: SentimentDataInputSchema },
   output: { schema: SentimentDataOutputSchema },
   system: SYSTEM_INSTRUCTION,
-  tools: [googleAI.googleSearchTool],
+  tools: [googleAI.googleSearch],
   prompt: `Analyze the news for {{ticker}} and determine the sentiment.`
 });
 
