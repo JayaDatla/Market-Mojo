@@ -11,7 +11,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase-admin';
-import { googleSearchTool } from '@genkit-ai/google-genai/tool';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const NewsArticleSchema = z.object({
   newsTitle: z.string().describe('The title of the news article.'),
@@ -46,7 +46,7 @@ const sentimentAnalysisPrompt = ai.definePrompt({
   input: { schema: SentimentDataInputSchema },
   output: { schema: SentimentDataOutputSchema },
   system: SYSTEM_INSTRUCTION,
-  tools: [googleSearchTool],
+  tools: [googleAI.googleSearchTool],
   prompt: `Analyze the news for {{ticker}} and determine the sentiment.`
 });
 
@@ -77,9 +77,9 @@ const persistAndDisplaySentimentDataFlow = ai.defineFlow(
           return { results: [] };
       }
 
-      // Temporarily disabled to prevent API calls
-      const { output } = await sentimentAnalysisPrompt(input);
-      // const output = null;
+      // Temporarily disabled to prevent API calls until the build error is fixed.
+      // const { output } = await sentimentAnalysisPrompt(input);
+      const output = null;
 
 
       if (output && output.results) {
