@@ -2,6 +2,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const TickerAnalysisInputSchema = z.object({
   ticker: z.string().describe('The stock ticker symbol to analyze.'),
@@ -59,6 +60,7 @@ const sentimentAnalysisFlow = ai.defineFlow(
             output: {
                 schema: TickerAnalysisOutputSchema,
             },
+            tools: [googleAI.googleSearch],
             model: 'gemini-1.5-flash',
             prompt: `
               You are an expert financial sentiment analyst. 
