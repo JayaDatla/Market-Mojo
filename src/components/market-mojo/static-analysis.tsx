@@ -105,28 +105,8 @@ export const industryData: { [key: string]: { industry: string; analysis: string
   }
 };
 
-export const companyNameToTicker: { [key: string]: string } = {
-    'TESLA': 'TSLA',
-    'APPLE': 'AAPL',
-    'MICROSOFT': 'MSFT',
-    'GOOGLE': 'GOOGL',
-    'ALPHABET': 'GOOGL',
-    'AMAZON': 'AMZN',
-    'NVIDIA': 'NVDA',
-    'META': 'META',
-    'FACEBOOK': 'META',
-    'ELI LILLY': 'LLY',
-    'BROADCOM': 'AVGO',
-    'JPMORGAN CHASE': 'JPM',
-    'JPMORGAN': 'JPM',
-    'VOLKSWAGEN': 'VW',
-    'SHELL': 'SHELL',
-    'TENCENT': '700.HK',
-};
-
 export default function StaticAnalysis({ ticker }: StaticAnalysisProps) {
-  const resolvedTicker = (companyNameToTicker[ticker.toUpperCase()] || ticker.toUpperCase());
-  const data = industryData[resolvedTicker];
+  const data = industryData[ticker.toUpperCase()];
 
   if (!data) {
     return (

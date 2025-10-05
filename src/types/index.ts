@@ -18,6 +18,7 @@ export type ArticleAnalysis = {
   summary:string;
   sentiment: 'Positive' | 'Negative' | 'Neutral';
   sentiment_score: number;
+  ticker: string;
 };
 
 // This type represents the direct output from the API call

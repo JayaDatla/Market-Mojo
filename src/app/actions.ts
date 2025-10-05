@@ -4,13 +4,12 @@
 import type { TickerAnalysisOutput } from '@/types';
 
 const API_URL = "https://api.perplexity.ai/chat/completions";
-const MODEL = "sonar"; // Switched to the correct model name
+const MODEL = "sonar";
 
 const generatePrompt = (tickerOrName: string) => `
 You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
 
-The user has provided the following identifier: "${tickerOrName}". This could be a stock ticker or the company's name.
-Search the web to find the top 5 most recent news articles for the specified company.
+The user has provided the following identifier: "${tickerOrName}". First, identify the correct stock ticker for this company. Then, search the web to find the top 5 most recent news articles for it.
 
 Strictly analyze these news snippets for their immediate impact on investor perception and stock price, ignoring all non-financial context.
 For each article, provide a one-sentence summary, determine if the sentiment is "Positive", "Negative", or "Neutral", and provide a sentiment_score from -1.0 to 1.0.
@@ -22,7 +21,8 @@ Your response MUST be a single, valid JSON array of objects, and nothing else. D
     "url": "...",
     "summary": "...",
     "sentiment": "Positive" | "Negative" | "Neutral",
-    "sentiment_score": ...
+    "sentiment_score": ...,
+    "ticker": "..."
   }
 ]
 `;

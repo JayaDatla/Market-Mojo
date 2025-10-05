@@ -9,7 +9,7 @@ import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
 import SentimentCharts from './sentiment-charts';
 import NewsFeed from './news-feed';
-import StaticAnalysis, { industryData, companyNameToTicker } from './static-analysis';
+import StaticAnalysis, { industryData } from './static-analysis';
 import TopCompanies from './top-companies';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -29,14 +29,14 @@ export default function MarketMojoDashboard() {
   const [noResults, setNoResults] = useState(false);
   const { toast } = useToast();
 
-  const handleAnalysis = (tickerToAnalyze: string) => {
-    if (!tickerToAnalyze) return;
+  const handleAnalysis = (input: string) => {
+    if (!input) return;
 
     setHasSearched(true);
     setNoResults(false);
     setNewsData([]);
     setRawApiData(null);
-    setTicker(tickerToAnalyze);
+    setTicker(input);
 
     startTransition(async () => {
       let result: TickerAnalysisOutput | null = null;
@@ -44,7 +44,7 @@ export default function MarketMojoDashboard() {
 
       for (let i = 0; i <= MAX_RETRIES; i++) {
         try {
-          const analysisResult = await fetchAndAnalyzeNews(tickerToAnalyze);
+          const analysisResult = await fetchAndAnalyzeNews(input);
           result = analysisResult;
           setRawApiData(analysisResult);
           
@@ -62,16 +62,15 @@ export default function MarketMojoDashboard() {
       
       const processResult = (analysisResult: TickerAnalysisOutput) => {
         if (!analysisResult.analysis || analysisResult.analysis.length === 0) return [];
-        const resolvedTicker = companyNameToTicker[tickerToAnalyze.toUpperCase()] || tickerToAnalyze;
         return analysisResult.analysis.map((item, index) => ({
-          id: `${resolvedTicker}-${index}-${Date.now()}`,
+          id: `${item.ticker}-${index}-${Date.now()}`,
           newsTitle: item.title,
           summary: item.summary,
           sentimentScore: item.sentiment_score,
           sentimentLabel: item.sentiment,
           sourceUri: item.url,
           timestamp: { toDate: () => new Date() } as any,
-          ticker: resolvedTicker,
+          ticker: item.ticker.toUpperCase(),
         }));
       };
 
@@ -80,18 +79,25 @@ export default function MarketMojoDashboard() {
         setNewsData(articles);
         setAnalysisCache(prevCache => ({
           ...prevCache,
-          [tickerToAnalyze]: { analysis: result?.analysis, rawResponse: result?.rawResponse },
+          [input]: { analysis: result?.analysis, rawResponse: result?.rawResponse },
         }));
+        // Set the ticker from the first result for consistency
+        if (articles.length > 0) {
+          setTicker(articles[0].ticker);
+        }
       } else {
-        const cachedData = analysisCache[tickerToAnalyze];
+        const cachedData = analysisCache[input];
         if (cachedData && cachedData.analysis) {
           const articles = processResult(cachedData);
           setNewsData(articles);
           setRawApiData(cachedData.rawResponse);
           toast({
             title: 'Live Analysis Failed',
-            description: `Showing previously cached data for ${tickerToAnalyze}.`,
+            description: `Showing previously cached data for ${input}.`,
           });
+          if (articles.length > 0) {
+            setTicker(articles[0].ticker);
+          }
         } else {
           setRawApiData(result);
           setNoResults(true);
@@ -115,9 +121,9 @@ export default function MarketMojoDashboard() {
       handleAnalysis(tickerInput);
     }
   };
-
-  const resolvedTicker = (companyNameToTicker[ticker.toUpperCase()] || ticker.toUpperCase());
-  const currentPriceData = industryData[resolvedTicker]?.priceData;
+  
+  const displayTicker = (newsData.length > 0 ? newsData[0].ticker : ticker).toUpperCase();
+  const currentPriceData = industryData[displayTicker]?.priceData;
   
   const isLoading = isAnalyzing;
   const showDashboard = newsData.length > 0 && hasSearched;
@@ -164,7 +170,7 @@ export default function MarketMojoDashboard() {
         {isLoading && hasSearched ? (
           <div className="text-center py-16">
             <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
-            <p className="text-muted-foreground mt-4">Analyzing sentiment for {ticker}...</p>
+            <p className="text-muted-foreground mt-4">Analyzing sentiment for {tickerInput}...</p>
           </div>
         ) : showDashboard ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -175,7 +181,7 @@ export default function MarketMojoDashboard() {
             </div>
             <div className="space-y-8">
               <div className="sticky top-24 space-y-8">
-                  <StaticAnalysis ticker={ticker} />
+                  <StaticAnalysis ticker={displayTicker} />
                   <TopCompanies onCompanySelect={handleCompanySelect} />
               </div>
             </div>
@@ -185,7 +191,7 @@ export default function MarketMojoDashboard() {
                 <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-medium text-foreground">No Analysis Found</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    Could not perform sentiment analysis for <span className="font-semibold text-foreground">{ticker}</span>.
+                    Could not perform sentiment analysis for <span className="font-semibold text-foreground">{tickerInput}</span>.
                 </p>
                  <p className="text-sm text-muted-foreground">This could be due to a lack of recent news or an issue with the analysis service.</p>
                  <div className="mt-8">
