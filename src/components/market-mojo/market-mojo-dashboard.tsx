@@ -117,7 +117,7 @@ export default function MarketMojoDashboard() {
       <Header />
       <div className="container mx-auto px-4 py-8 flex-grow">
         <div className="max-w-3xl mx-auto mb-12">
-            <h2 className="text-4xl md:text-5xl font-bold text-center text-foreground mb-4 tracking-tighter">Market Sentiment Analyzer</h2>
+            <h2 className="text-4xl md:text-5xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-400 mb-4 tracking-tighter animate-gradient-x">Market Sentiment Analyzer</h2>
             <p className="text-lg text-muted-foreground text-center">Enter a stock ticker to get real-time news sentiment analysis powered by AI.</p>
         </div>
         <div className="max-w-2xl mx-auto mb-12">
@@ -161,4 +161,3 @@ export default function MarketMojoDashboard() {
     </div>
   );
 }
-
