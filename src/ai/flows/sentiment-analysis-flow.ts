@@ -61,22 +61,64 @@ const sentimentAnalysisFlow = ai.defineFlow(
                 schema: TickerAnalysisOutputSchema,
             },
             tools: [googleAI.googleSearch],
-            model: {
-              name: 'perplexity/llama-3-sonar-large-32k-online',
-              config: {
-                apiKey: process.env.PERPLEXITY_API_KEY
-              }
-            },
+            model: googleAI('gemini-1.5-flash'), // Using a standard model for tool use support
             prompt: `
                 You are an expert financial sentiment analyst. 
                 Find the top 5 recent news articles about the company with the stock ticker "{{ticker}}".
-                For each of the articles, provide a one-sentence summary, determine if the sentiment is Positive, Negative, or Neutral, and provide a sentiment score from -1.0 to 1.0.
+                For each of the articles, provide a one-sentence summary, determine if the sentiment is Positive, Negative, or Neutral, and provide a sentiment-score from -1.0 to 1.0.
             `
         },
     )
 
-    const result = await sentimentAnalysisPrompt({ticker});
+    const searchResult = await sentimentAnalysisPrompt({ticker});
+    const articles = searchResult.output?.analysis;
 
-    return result.output!;
+    if (!articles || articles.length === 0) {
+      return { analysis: [] };
+    }
+    
+    // Now, we'll use Perplexity to analyze the sentiment of the articles found by Google Search
+    const systemPrompt = `
+      You are an expert financial sentiment analyst. 
+      For each of the articles provided, provide a one-sentence summary, determine if the sentiment is Positive, Negative, or Neutral, and provide a sentiment-score from -1.0 to 1.0.
+      Respond with only a JSON object that adheres to this Zod schema:
+      ${JSON.stringify(TickerAnalysisOutputSchema.jsonSchema())}
+    `;
+
+    const userPrompt = `Analyze these articles:\n\n${articles.map(a => `Title: ${a.title}\nURL: ${a.url}`).join('\n\n')}`;
+
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3-sonar-large-32k-online',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        response_format: { type: 'json_object' },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Perplexity API Error:", errorText);
+      throw new Error(`Perplexity API request failed with status ${response.status}`);
+    }
+
+    const jsonResponse = await response.json();
+    const content = JSON.parse(jsonResponse.choices[0].message.content);
+
+    // Validate the response against our schema
+    const validation = TickerAnalysisOutputSchema.safeParse(content);
+    if (!validation.success) {
+      console.error("Perplexity response validation error:", validation.error);
+      throw new Error("Failed to parse sentiment analysis response from Perplexity.");
+    }
+    
+    return validation.data;
   }
 );
