@@ -29,7 +29,7 @@ const createNewsQuery = (firestore: Firestore, ticker: string) => {
     if (!ticker) return null;
     // The app ID should be static for this app's public data structure.
     const appId = "studio-app"; 
-    const collectionPath = `artifacts/${appId}/data/financial_news_sentiment`;
+    const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
     return query(
       collection(firestore, collectionPath),
       where('ticker', '==', ticker.toUpperCase()),
