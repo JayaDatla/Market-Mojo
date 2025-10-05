@@ -14,6 +14,7 @@ import TopCompanies from './top-companies';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import InvestmentSuggestion from './investment-suggestion';
 
 type AnalysisCache = Record<string, TickerAnalysisOutput>;
 
@@ -92,7 +93,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, [handleAnalysis]);
+  }, []);
 
   const handleViewTicker = () => {
     if (tickerInput) {
@@ -156,6 +157,7 @@ export default function MarketMojoDashboard() {
             </div>
             <div className="lg:col-span-1">
               <div className="sticky top-24 space-y-8">
+                  <InvestmentSuggestion newsData={newsData} priceData={currentPriceData} />
                   <StaticAnalysis ticker={ticker} />
                   <TopCompanies onCompanySelect={handleCompanySelect} />
               </div>
