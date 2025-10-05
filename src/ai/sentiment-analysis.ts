@@ -1,6 +1,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import type { TickerAnalysisOutput } from '@/types';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const TickerAnalysisInputSchema = z.object({
   ticker: z.string().describe('The stock ticker symbol to analyze.'),
@@ -42,7 +43,8 @@ const sentimentAnalysisPrompt = ai.definePrompt({
   output: {
     schema: TickerAnalysisOutputSchema,
   },
-  model: 'gemini-pro',
+  model: 'gemini-1.5-flash',
+  tools: [googleAI.googleSearch],
   prompt: `
         You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
         
