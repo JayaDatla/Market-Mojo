@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -69,18 +70,8 @@ export default function SentimentCharts({ newsData, priceData }: SentimentCharts
     <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
       <Card className="md:col-span-3 bg-card border-border/50">
         <CardHeader>
-          <div className='flex justify-between items-center'>
-            <div>
-              <CardTitle>Historical Price (30-day)</CardTitle>
-              <CardDescription>Placeholder stock price over time.</CardDescription>
-            </div>
-            <div className='text-right'>
-              <div className={`text-3xl font-bold ${getGradientColor(averageScore)}`}>
-                  {averageScore.toFixed(2)}
-              </div>
-              <div className='text-xs text-muted-foreground'>Overall Score</div>
-            </div>
-          </div>
+          <CardTitle>Historical Price (30-day)</CardTitle>
+          <CardDescription>Placeholder stock price over time.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-[300px]">
@@ -123,8 +114,18 @@ export default function SentimentCharts({ newsData, priceData }: SentimentCharts
       </Card>
       <Card className="md:col-span-2 bg-card border-border/50">
         <CardHeader>
-          <CardTitle>Sentiment Distribution</CardTitle>
-          <CardDescription>Breakdown of news sentiment.</CardDescription>
+            <div className='flex justify-between items-start'>
+                <div>
+                    <CardTitle>Sentiment Distribution</CardTitle>
+                    <CardDescription>Breakdown of news sentiment.</CardDescription>
+                </div>
+                <div className='text-right'>
+                    <div className={`text-3xl font-bold ${getGradientColor(averageScore)}`}>
+                        {averageScore.toFixed(2)}
+                    </div>
+                    <div className='text-xs text-muted-foreground'>Overall Score</div>
+                </div>
+            </div>
         </CardHeader>
         <CardContent>
           <div className="h-[300px]">
