@@ -33,41 +33,39 @@ const createNewsQuery = (firestore: Firestore, ticker: string) => {
 
 
 export default function MarketMojoDashboard() {
-  const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
-  const [ticker, setTicker] = useState(''); // Don't default to a ticker
+  const [ticker, setTicker] = useState('');
   const [tickerInput, setTickerInput] = useState('');
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
-  const [isLoading, setIsLoading] = useState(false); // Not loading initially
-  const [hasSearched, setHasSearched] = useState(false); // Track if a search has been performed
-  const [noResults, setNoResults] = useState(false); // Track if a search yielded no results
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [noResults, setNoResults] = useState(false);
   const { toast } = useToast();
-  const router = useRouter();
 
   const newsQuery = useMemoFirebase(() => {
     if (!firestore || !ticker) return null;
     return createNewsQuery(firestore, ticker);
   }, [firestore, ticker]);
 
-
   useEffect(() => {
     if (!newsQuery) {
-        setNewsData([]); // Clear data if query is not available
+        setNewsData([]);
         return;
     };
 
     setIsLoading(true);
     setNoResults(false);
+
     const unsubscribe = onSnapshot(newsQuery, (querySnapshot) => {
       const data: NewsArticle[] = [];
       querySnapshot.forEach((doc) => {
         data.push({ id: doc.id, ...doc.data() } as NewsArticle);
       });
+      
       setNewsData(data);
-      if(data.length === 0 && hasSearched) {
-        setNoResults(true);
-      }
+      setNoResults(data.length === 0);
       setIsLoading(false);
+
     }, (error) => {
       console.error("Firestore snapshot error", error);
       toast({ variant: 'destructive', title: 'Data Error', description: 'Could not load real-time data.' });
@@ -75,17 +73,14 @@ export default function MarketMojoDashboard() {
     });
 
     return () => unsubscribe();
-  }, [newsQuery, toast, ticker, hasSearched]);
+  }, [newsQuery, toast]);
   
 
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     if (!tickerToAnalyze) return;
-    setHasSearched(true);
-    setNoResults(false);
     setTickerInput(tickerToAnalyze);
     setTicker(tickerToAnalyze);
-    setIsLoading(true);
-    // No toast here to avoid being annoying on every click
+    setHasSearched(true);
   }, []);
 
   const handleViewTicker = () => {
@@ -94,15 +89,8 @@ export default function MarketMojoDashboard() {
     }
   }
 
-  if (isUserLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   const showDashboard = newsData.length > 0 && hasSearched;
+  const showNoResults = noResults && hasSearched && !isLoading;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -124,12 +112,12 @@ export default function MarketMojoDashboard() {
                 />
               </div>
               <Button onClick={handleViewTicker} disabled={isLoading || !tickerInput} className="px-6">
-                {isLoading ? <Loader2 className="animate-spin" /> : 'View'}
+                {isLoading && hasSearched ? <Loader2 className="animate-spin" /> : 'View'}
               </Button>
             </div>
         </div>
         
-        {isLoading ? (
+        {isLoading && hasSearched ? (
           <div className="text-center py-16">
             <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
             <p className="text-muted-foreground mt-4">Loading data for {ticker}...</p>
@@ -145,7 +133,7 @@ export default function MarketMojoDashboard() {
               <TopCompanies onCompanySelect={handleCompanySelect} />
             </div>
           </div>
-        ) : noResults ? (
+        ) : showNoResults ? (
             <div className="text-center py-16 bg-card border border-dashed border-border/50 rounded-lg">
                 <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-medium text-foreground">No Data Found</h3>
@@ -157,11 +145,6 @@ export default function MarketMojoDashboard() {
                     <TopCompanies onCompanySelect={handleCompanySelect} />
                  </div>
             </div>
-        ) : hasSearched ? (
-           <div className="text-center py-16">
-            <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
-            <p className="text-muted-foreground mt-4">Searching for {ticker}...</p>
-          </div>
         ) : (
           <div className="text-center">
             <TopCompanies onCompanySelect={handleCompanySelect} />
