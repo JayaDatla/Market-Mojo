@@ -154,16 +154,30 @@ export const useFirebaseApp = (): FirebaseApp => {
   return firebaseApp;
 };
 
-type MemoFirebase <T> = T & {__memo?: boolean};
+type MemoFirebase<T> = T & { __memo?: boolean; deps?: DependencyList };
 
-export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | (MemoFirebase<T>) {
+export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const memoized = useMemo(factory, deps);
+
+  if (typeof memoized !== 'object' || memoized === null) return memoized;
+
+  // Check if the object is already tagged.
+  if ('__memo' in memoized && (memoized as MemoFirebase<T>).__memo) {
+    return memoized;
+  }
   
-  if(typeof memoized !== 'object' || memoized === null) return memoized;
-  (memoized as MemoFirebase<T>).__memo = true;
-  
+  // Directly marking the returned object from useMemo can be tricky as it might be a new object
+  // or a cached one. A safer approach for debugging is to wrap it or add a non-enumerable property.
+  Object.defineProperty(memoized, '__memo', {
+    value: true,
+    enumerable: false, // Hide it from console.log and object spreads
+    writable: false,
+  });
+
   return memoized;
 }
+
 
 /**
  * Hook specifically for accessing the authenticated user's state.

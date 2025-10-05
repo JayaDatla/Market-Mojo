@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { signInAnonymously, User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Firestore } from 'firebase/firestore';
 import { useFirebase, useUser, useMemoFirebase } from '@/firebase';
 import { fetchAndAnalyzeNews } from '@/app/actions';
 
@@ -18,6 +18,19 @@ import Header from './header';
 import SentimentCharts from './sentiment-charts';
 import NewsFeed from './news-feed';
 import StaticAnalysis from './static-analysis';
+
+// Helper function to create the query
+const createNewsQuery = (firestore: Firestore, ticker: string) => {
+    if (!process.env.NEXT_PUBLIC_APP_ID) return null;
+    const appId = process.env.NEXT_PUBLIC_APP_ID;
+    const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
+    return query(
+      collection(firestore, collectionPath),
+      where('ticker', '==', ticker.toUpperCase()),
+      orderBy('timestamp', 'desc')
+    );
+};
+
 
 export default function MarketMojoDashboard() {
   const { user, isUserLoading } = useUser();
@@ -38,20 +51,16 @@ export default function MarketMojoDashboard() {
   }, [isUserLoading, user, auth, toast]);
 
   const newsQuery = useMemoFirebase(() => {
-    if (!firestore || !ticker || !process.env.NEXT_PUBLIC_APP_ID) return null;
-
-    const appId = process.env.NEXT_PUBLIC_APP_ID;
-    const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
-    
-    return query(
-      collection(firestore, collectionPath),
-      where('ticker', '==', ticker.toUpperCase()),
-      orderBy('timestamp', 'desc')
-    );
+    if (!firestore || !ticker) return null;
+    return createNewsQuery(firestore, ticker);
   }, [firestore, ticker]);
 
+
   useEffect(() => {
-    if (!newsQuery) return;
+    if (!newsQuery) {
+        setNewsData([]); // Clear data if query is not available
+        return;
+    };
 
     const unsubscribe = onSnapshot(newsQuery, (querySnapshot) => {
       const data: NewsArticle[] = [];
@@ -61,6 +70,8 @@ export default function MarketMojoDashboard() {
       setNewsData(data);
     }, (error) => {
       console.error("Firestore snapshot error", error);
+      // The useCollection hook will now handle emitting the detailed error.
+      // We can still show a generic toast here if we want.
       toast({ variant: 'destructive', title: 'Data Error', description: 'Could not load real-time data.' });
     });
 
@@ -127,7 +138,7 @@ export default function MarketMojoDashboard() {
           </div>
         ) : (
           <div className="text-center py-16">
-            {isUserLoading ? (
+            {isLoading || isUserLoading ? (
               <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
             ) : (
               <p className="text-muted-foreground text-lg">Enter a stock ticker to begin sentiment analysis.</p>
