@@ -53,7 +53,7 @@ const sentimentAnalysisPrompt = ai.definePrompt({
   model: 'gemini-1.5-flash',
   tools: [googleAI.googleSearch],
   prompt: `
-        You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news.
+        You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
         
         Use the googleSearch tool to find the top 5 recent news articles for the company identified by the user as "{{ticker}}".
         
