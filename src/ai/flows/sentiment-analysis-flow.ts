@@ -2,7 +2,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { googleAI } from '@genkit-ai/google-genai';
+import { googleSearch } from '@genkit-ai/google-genai';
 
 const TickerAnalysisInputSchema = z.object({
   ticker: z.string().describe('The stock ticker symbol to analyze.'),
@@ -50,12 +50,12 @@ const sentimentAnalysisPrompt = ai.definePrompt({
   output: {
     schema: TickerAnalysisOutputSchema,
   },
+  tools: [googleSearch],
   model: 'gemini-1.5-pro-latest',
-  tools: [googleAI.googleSearch],
   prompt: `
         You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
         
-        Use the googleSearch tool to find the top 5 recent news articles for the company identified by the user as "{{ticker}}".
+        Use the attached tools to find the top 5 recent news articles for the company identified by the user as "{{ticker}}".
         
         Strictly analyze these news snippets for their immediate impact on investor perception and stock price, ignoring all non-financial context.
         For each article, provide a one-sentence summary, determine if the sentiment is "Positive", "Negative", or "Neutral", and provide a sentiment_score from -1.0 to 1.0.
