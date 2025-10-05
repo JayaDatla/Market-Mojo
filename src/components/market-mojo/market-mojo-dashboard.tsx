@@ -8,7 +8,7 @@ import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
 import SentimentCharts from './sentiment-charts';
 import NewsFeed from './news-feed';
-import StaticAnalysis from './static-analysis';
+import StaticAnalysis, { industryData } from './static-analysis';
 import TopCompanies from './top-companies';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -78,6 +78,7 @@ export default function MarketMojoDashboard() {
   const isLoading = isAnalyzing;
   const showDashboard = newsData.length > 0 && hasSearched;
   const showNoResults = noResults && hasSearched && !isLoading;
+  const currentPriceData = industryData[ticker.toUpperCase()]?.priceData;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -125,7 +126,7 @@ export default function MarketMojoDashboard() {
         ) : showDashboard ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              <SentimentCharts newsData={newsData} />
+              <SentimentCharts newsData={newsData} priceData={currentPriceData} />
               <NewsFeed newsData={newsData.slice(0, 5)} />
             </div>
             <div className="lg:col-span-1">
