@@ -1,7 +1,6 @@
 'use server';
 
 import { persistAndDisplaySentimentData } from "@/ai/flows/persist-and-display-sentiment-data";
-import { db } from "@/lib/firebase/firebase-admin";
 
 export async function fetchAndAnalyzeNews(ticker: string): Promise<{ message?: string; error?: string }> {
   if (!ticker || typeof ticker !== 'string' || ticker.trim() === '') {
@@ -11,24 +10,12 @@ export async function fetchAndAnalyzeNews(ticker: string): Promise<{ message?: s
   const upperCaseTicker = ticker.trim().toUpperCase();
 
   try {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const appId = process.env.NEXT_PUBLIC_APP_ID || '__app_id';
-    const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
-
-    const existingData = await db
-      .collection(collectionPath)
-      .where("ticker", "==", upperCaseTicker)
-      .where("timestamp", ">=", twentyFourHoursAgo)
-      .limit(1)
-      .get();
-
-    if (!existingData.empty) {
-        console.log(`Recent analysis found for ${upperCaseTicker}. Skipping new analysis.`);
-        return { message: 'Recent analysis already available.' };
-    }
-
     console.log(`Fetching new analysis for ${upperCaseTicker}.`);
-    await persistAndDisplaySentimentData({ ticker: upperCaseTicker });
+    const result = await persistAndDisplaySentimentData({ ticker: upperCaseTicker });
+
+    if (result.results.length === 0) {
+      return { message: 'Recent analysis already available. Displaying cached results.' };
+    }
 
     return { message: 'Analysis in progress... Results will appear shortly.' };
 

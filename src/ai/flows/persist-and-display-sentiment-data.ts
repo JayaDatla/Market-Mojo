@@ -9,9 +9,9 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { serverTimestamp } from 'firebase-admin/firestore';
+import { serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase-admin';
-import { googleSearchTool } from '@genkit-ai/google-genai';
+import { googleSearchTool } from '@genkit-ai/google-genai/tool';
 
 const NewsArticleSchema = z.object({
   newsTitle: z.string().describe('The title of the news article.'),
@@ -58,12 +58,28 @@ const persistAndDisplaySentimentDataFlow = ai.defineFlow(
   },
   async input => {
     try {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const appId = process.env.NEXT_PUBLIC_APP_ID || '__app_id';
+      const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
+
+      const existingData = await db
+        .collection(collectionPath)
+        .where("ticker", "==", input.ticker.toUpperCase())
+        .where("timestamp", ">=", twentyFourHoursAgo)
+        .limit(1)
+        .get();
+
+      if (!existingData.empty) {
+          console.log(`Recent analysis found for ${input.ticker}. Skipping new analysis.`);
+          // Even if we skip, we need to return something that conforms to SentimentDataOutputSchema
+          // We can return an empty array or fetch the existing data and return it.
+          // For now, returning empty to signal no *new* analysis was performed.
+          return { results: [] };
+      }
+
       const { output } = await sentimentAnalysisPrompt(input);
 
       if (output && output.results) {
-        const appId = process.env.NEXT_PUBLIC_APP_ID || '__app_id';
-        const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
-
         // Save the sentiment analysis results to Firestore
         const batch = db.batch();
         output.results.forEach((result) => {
