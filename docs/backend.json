@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "FinancialNewsSentiment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FinancialNewsSentiment",
+      "type": "object",
+      "description": "Represents the sentiment analysis of a single news article related to a financial ticker.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the sentiment analysis record."
+        },
+        "ticker": {
+          "type": "string",
+          "description": "The stock ticker or company identifier for which the news was analyzed."
+        },
+        "newsTitle": {
+          "type": "string",
+          "description": "The title of the news article."
+        },
+        "summary": {
+          "type": "string",
+          "description": "A concise summary of the news article's content."
+        },
+        "sentimentScore": {
+          "type": "number",
+          "description": "A numerical score representing the sentiment of the news article, ranging from -1.0 (negative) to 1.0 (positive)."
+        },
+        "sentimentLabel": {
+          "type": "string",
+          "description": "A label indicating the sentiment of the news article (Positive, Neutral, or Negative)."
+        },
+        "sourceUri": {
+          "type": "string",
+          "description": "The URI of the original news article.",
+          "format": "uri"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The timestamp when the sentiment analysis was performed.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ticker",
+        "newsTitle",
+        "summary",
+        "sentimentScore",
+        "sentimentLabel",
+        "sourceUri",
+        "timestamp"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/artifacts/{appId}/public/data/financial_news_sentiment/{sentimentId}",
+        "definition": {
+          "entityName": "FinancialNewsSentiment",
+          "schema": {
+            "$ref": "#/backend/entities/FinancialNewsSentiment"
+          },
+          "description": "Stores sentiment analysis records for financial news articles.  All documents share the same public read access. Includes denormalized `appId` for potential future multi-tenancy or filtering needs.  `appId` represents the application identifier.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application."
+            },
+            {
+              "name": "sentimentId",
+              "description": "The unique identifier for the sentiment analysis record."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "Given the requirement for a global financial news sentiment analyzer and the emphasis on cost control, real-time updates, and static industry analysis, I recommend a relatively flat data structure that prioritizes efficient querying and security. The core data, sentiment analysis records, are stored in a public collection under an application identifier to prevent collisions and enable global access. The absence of user-specific data or private content simplifies the security model, eliminating the need for complex ownership or membership-based access controls. This structure achieves Authorization Independence because there is no reliance on parent document data for authorization. It supports the required QAPs by segregating all sentiment data into a single collection with uniform access requirements, enabling secure list operations without the need for filtering based on user roles or ownership."
+  }
+}

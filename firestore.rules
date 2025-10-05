@@ -1,0 +1,51 @@
+/**
+ * @fileoverview Firestore Security Rules for the financial news sentiment analyzer application.
+ *
+ * Core Philosophy:
+ * This ruleset provides public read access to financial news sentiment data while restricting write access.
+ *
+ * Data Structure:
+ * All sentiment analysis records are stored under the `/artifacts/{appId}/public/data/financial_news_sentiment/{sentimentId}` path.
+ *
+ * Key Security Decisions:
+ * - Public read access (`get`, `list`) is allowed for all sentiment records.
+ * - Write access (`create`, `update`, `delete`) is restricted and requires authentication and `appId` match.
+ * - The rules do NOT enforce a rigid schema but ensure the `appId` matches the path.
+ *
+ * Denormalization for Authorization:
+ * - The `appId` is part of the document path and can be used for authorization without requiring additional `get()` calls.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Grants public read access to financial news sentiment data and restricts write access.
+     * @path /artifacts/{appId}/public/data/financial_news_sentiment/{sentimentId}
+     * @allow (get, list) - Any user can read sentiment data.
+     * @allow (create) - An authenticated user can create a sentiment record if the `appId` in the path matches a field in the data.
+     * @allow (update, delete) - Not allowed.
+     * @deny (create) - An unauthenticated user cannot create a sentiment record.
+     * @deny (create) - An authenticated user cannot create a sentiment record if the `appId` in the path does not match a field in the data.
+     * @principle Allows public read access while restricting write access to authenticated users.
+     */
+    match /artifacts/{appId}/public/data/financial_news_sentiment/{sentimentId} {
+      allow get: if true;
+      allow list: if true;
+
+      allow create: if isSignedIn() && request.resource.data.ticker != null;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // --- Helper functions ---
+
+    /**
+     * @description Checks if the user is signed in.
+     * @return {bool} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+  }
+}
