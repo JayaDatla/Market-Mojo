@@ -81,7 +81,7 @@ export default function StaticAnalysis({ ticker }: StaticAnalysisProps) {
 
   if (!data) {
     return (
-       <Card className="bg-card border-border/50 sticky top-24">
+       <Card className="bg-card border-border/50">
         <CardHeader>
           <CardTitle>Industry Deep Dive</CardTitle>
         </CardHeader>
@@ -93,7 +93,7 @@ export default function StaticAnalysis({ ticker }: StaticAnalysisProps) {
   }
 
   return (
-    <Card className="bg-card border-border/50 sticky top-24">
+    <Card className="bg-card border-border/50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
             <Lightbulb className="h-5 w-5 text-primary" />

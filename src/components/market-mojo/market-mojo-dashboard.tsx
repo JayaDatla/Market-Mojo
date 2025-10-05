@@ -128,9 +128,11 @@ export default function MarketMojoDashboard() {
               <SentimentCharts newsData={newsData} />
               <NewsFeed newsData={newsData.slice(0, 5)} />
             </div>
-            <div className="lg:col-span-1 space-y-8">
-              <StaticAnalysis ticker={ticker} />
-              <TopCompanies onCompanySelect={handleCompanySelect} />
+            <div className="lg:col-span-1">
+              <div className="sticky top-24 space-y-8">
+                <StaticAnalysis ticker={ticker} />
+                <TopCompanies onCompanySelect={handleCompanySelect} />
+              </div>
             </div>
           </div>
         ) : showNoResults ? (
