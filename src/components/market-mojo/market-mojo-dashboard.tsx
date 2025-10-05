@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { User } from 'firebase/auth';
 import { collection, query, where, onSnapshot, orderBy, Firestore } from 'firebase/firestore';
 import { useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { fetchAndAnalyzeNews } from '@/app/actions';
+import { fetchAndAnalyzeNews, saveAnalysisResults } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 
 import type { NewsArticle } from '@/types';
@@ -85,37 +85,56 @@ export default function MarketMojoDashboard() {
     }
     
     setIsLoading(true);
-    setTicker(inputValue); // Set ticker to trigger Firestore listener update
+    const currentTicker = inputValue;
+    setTicker(currentTicker); // Set ticker to trigger Firestore listener update
 
-    const result = await fetchAndAnalyzeNews(inputValue);
+    const result = await fetchAndAnalyzeNews(currentTicker);
 
     if (result.error) {
       toast({ variant: 'destructive', title: 'Analysis Error', description: result.error });
+      setIsLoading(false);
+      return;
     }
     if (result.message) {
       toast({ title: 'Analysis Status', description: result.message });
     }
+
+    // If new data was fetched, save it from the client
+    if (result.data?.results) {
+        const saveResult = await saveAnalysisResults(currentTicker, result.data.results);
+        if (saveResult.error) {
+            toast({ variant: 'destructive', title: 'Save Error', description: saveResult.error });
+        } else {
+            toast({ title: 'Success', description: 'New analysis saved.'});
+        }
+    }
     
-    setTimeout(() => setIsLoading(false), 2000);
+    // The onSnapshot listener will update the UI, so we just need to stop the loading indicator
+    setTimeout(() => setIsLoading(false), 500); // Give a moment for Firestore to sync
   };
   
   const handleCompanySelect = (selectedTicker: string) => {
     setInputValue(selectedTicker);
-    // We need to use a function to ensure the latest state is used for the async call
-    // because React state updates can be asynchronous.
-    // A simple way is to use a useEffect that triggers when inputValue changes and is not empty.
-    // Or call it directly after setting state, but the `inputValue` may not be updated yet.
-    // Let's trigger it more directly.
-    setTicker(selectedTicker); // Trigger Firestore listener
+    setTicker(selectedTicker);
     setIsLoading(true);
-    fetchAndAnalyzeNews(selectedTicker).then(result => {
+    fetchAndAnalyzeNews(selectedTicker).then(async (result) => {
         if (result.error) {
             toast({ variant: 'destructive', title: 'Analysis Error', description: result.error });
+            setIsLoading(false);
+            return;
         }
         if (result.message) {
             toast({ title: 'Analysis Status', description: result.message });
         }
-        setTimeout(() => setIsLoading(false), 2000);
+        if (result.data?.results) {
+            const saveResult = await saveAnalysisResults(selectedTicker, result.data.results);
+            if(saveResult.error){
+                toast({ variant: 'destructive', title: 'Save Error', description: saveResult.error });
+            } else {
+                toast({ title: 'Success', description: 'New analysis saved.'});
+            }
+        }
+        setTimeout(() => setIsLoading(false), 500);
     });
   }
 

@@ -1,7 +1,8 @@
 import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 let app: App;
+let db: Firestore;
 
 if (!getApps().length) {
   try {
@@ -31,6 +32,6 @@ if (!getApps().length) {
   app = getApps()[0];
 }
 
-const db = getFirestore(app);
+db = getFirestore(app);
 
 export { db, app as adminApp };

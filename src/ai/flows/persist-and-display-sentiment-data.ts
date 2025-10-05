@@ -1,16 +1,14 @@
 'use server';
 /**
- * @fileOverview A sentiment analysis flow that fetches news, analyzes sentiment, and stores the results.
+ * @fileOverview A sentiment analysis flow that fetches news and analyzes sentiment.
  *
- * - persistAndDisplaySentimentData - A function that triggers the sentiment analysis and data persistence process.
+ * - persistAndDisplaySentimentData - A function that triggers the sentiment analysis.
  * - SentimentDataInput - The input type for the persistAndDisplaySentimentData function.
  * - SentimentDataOutput - The return type for the persistAndDisplaySentimentData function.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase-admin';
 import { googleAI } from '@genkit-ai/google-genai';
 
 const NewsArticleSchema = z.object({
@@ -58,49 +56,16 @@ const persistAndDisplaySentimentDataFlow = ai.defineFlow(
   },
   async input => {
     try {
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const appId = process.env.NEXT_PUBLIC_APP_ID || '__app_id';
-      const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
-
-      const existingData = await db
-        .collection(collectionPath)
-        .where("ticker", "==", input.ticker.toUpperCase())
-        .where("timestamp", ">=", twentyFourHoursAgo)
-        .limit(1)
-        .get();
-
-      if (!existingData.empty) {
-          console.log(`Recent analysis found for ${input.ticker}. Skipping new analysis.`);
-          // Even if we skip, we need to return something that conforms to SentimentDataOutputSchema
-          // We can return an empty array or fetch the existing data and return it.
-          // For now, returning empty to signal no *new* analysis was performed.
-          return { results: [] };
-      }
-
       const { output } = await sentimentAnalysisPrompt(input);
-
-
-      if (output && output.results) {
-        // Save the sentiment analysis results to Firestore
-        const batch = db.batch();
-        output.results.forEach((result) => {
-          const docRef = db.collection(collectionPath).doc(); // Auto-generate ID
-          batch.set(docRef, {
-            ...result,
-            ticker: input.ticker.toUpperCase(),
-            timestamp: serverTimestamp(),
-          });
-        });
-        await batch.commit();
-
+      
+      if (output) {
         return output;
       } else {
-        // console.error("No output from sentimentAnalysisPrompt");
-        return { results: [] }; // Return an empty array if there's no output.
+        return { results: [] }; 
       }
     } catch (error: any) {
       console.error("Error in persistAndDisplaySentimentDataFlow:", error);
-      throw new Error("Failed to analyze and store sentiment data: " + error.message);
+      throw new Error("Failed to analyze sentiment data: " + error.message);
     }
   }
 );
