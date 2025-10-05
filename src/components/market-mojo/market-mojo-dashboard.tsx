@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useCallback, useTransition } from 'react';
-import { fetchAndAnalyzeNews } from '@/app/actions';
+import { analyzeTicker } from '@/ai/flows/sentiment-analysis-flow';
 import type { NewsArticle, TickerAnalysisOutput } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
@@ -39,7 +39,26 @@ export default function MarketMojoDashboard() {
     setTicker(tickerToAnalyze);
 
     startTransition(async () => {
-      const result = await fetchAndAnalyzeNews(tickerToAnalyze);
+      let result: TickerAnalysisOutput | null = null;
+      const MAX_RETRIES = 2;
+
+      for (let i = 0; i <= MAX_RETRIES; i++) {
+        try {
+          const analysisResult = await analyzeTicker(tickerToAnalyze);
+          result = analysisResult;
+          setRawApiData(analysisResult);
+          
+          if (analysisResult.analysis && analysisResult.analysis.length > 0) {
+            break; // Success
+          }
+        } catch (e: any) {
+            result = { error: e.message || 'An unexpected error occurred during analysis.' };
+        }
+
+        if (i < MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+        }
+      }
       
       const processResult = (analysisResult: TickerAnalysisOutput) => {
         if (!analysisResult.analysis || analysisResult.analysis.length === 0) return [];
@@ -55,13 +74,21 @@ export default function MarketMojoDashboard() {
         }));
       };
 
-      if (result.error || !result.analysis || result.analysis.length === 0) {
+      if (result && !result.error && result.analysis && result.analysis.length > 0) {
+        // API call was successful
+        const articles = processResult(result);
+        setNewsData(articles);
+        setAnalysisCache(prevCache => ({
+          ...prevCache,
+          [tickerToAnalyze]: { analysis: result?.analysis, rawResponse: result },
+        }));
+      } else {
         // API call failed or returned no data, check cache
         const cachedData = analysisCache[tickerToAnalyze];
         if (cachedData && cachedData.analysis) {
-          setRawApiData(cachedData.rawResponse);
           const articles = processResult(cachedData);
           setNewsData(articles);
+          setRawApiData(cachedData.rawResponse);
           toast({
             title: 'Live Analysis Failed',
             description: `Showing previously cached data for ${tickerToAnalyze}.`,
@@ -73,19 +100,9 @@ export default function MarketMojoDashboard() {
           toast({
             variant: 'destructive',
             title: 'Analysis Failed',
-            description: result.error || 'No news articles could be analyzed for this ticker.',
+            description: result?.error || 'No news articles could be analyzed for this ticker.',
           });
         }
-      } else {
-        // API call was successful
-        setRawApiData(result.rawResponse);
-        const articles = processResult(result);
-        setNewsData(articles);
-        // Update cache with the new successful result
-        setAnalysisCache(prevCache => ({
-          ...prevCache,
-          [tickerToAnalyze]: result,
-        }));
       }
     });
   };
@@ -93,7 +110,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, []);
+  }, [handleAnalysis]);
 
   const handleViewTicker = () => {
     if (tickerInput) {
@@ -153,11 +170,11 @@ export default function MarketMojoDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               <SentimentCharts newsData={newsData} priceData={currentPriceData} />
+              <InvestmentSuggestion newsData={newsData} priceData={currentPriceData} />
               <NewsFeed newsData={newsData.slice(0, 5)} />
             </div>
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 space-y-8">
               <div className="sticky top-24 space-y-8">
-                  <InvestmentSuggestion newsData={newsData} priceData={currentPriceData} />
                   <StaticAnalysis ticker={ticker} />
                   <TopCompanies onCompanySelect={handleCompanySelect} />
               </div>
