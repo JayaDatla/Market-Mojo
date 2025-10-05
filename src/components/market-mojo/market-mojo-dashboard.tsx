@@ -3,11 +3,11 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, orderBy, Firestore, Timestamp, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Firestore, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { useFirebase, useUser, useMemoFirebase } from '@/firebase';
 import { fetchAndAnalyzeNews } from '@/app/actions';
 import { useRouter } from 'next/navigation';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDocumentNonBlocking } from '@/firebase/firestore-mutations';
 import type { NewsArticle } from '@/types';
 
 import { Button } from '@/components/ui/button';
@@ -86,23 +86,15 @@ export default function MarketMojoDashboard() {
       const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
       const collectionRef = collection(firestore, collectionPath);
       
-      try {
-          const batch = writeBatch(firestore);
-          results.forEach((result) => {
-              const docRef = collectionRef.doc(); // Firestore will auto-generate an ID on the client
-              batch.set(docRef, {
-                  ...result,
-                  ticker: tickerToSave.toUpperCase(),
-                  timestamp: serverTimestamp(), // Use client-side timestamp placeholder
-              });
+      results.forEach((result) => {
+          addDocumentNonBlocking(collectionRef, {
+              ...result,
+              ticker: tickerToSave.toUpperCase(),
+              timestamp: serverTimestamp(),
           });
-          await batch.commit(); // commit the batch
-          toast({ title: 'Success', description: 'New analysis saved.'});
-      } catch (error) {
-          console.error('Error saving results on client:', error);
-          const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-          toast({ variant: 'destructive', title: 'Save Error', description: `Failed to save results: ${errorMessage}` });
-      }
+      });
+      toast({ title: 'Success', description: 'New analysis saved.'});
+
   }, [firestore, toast]);
   
 

@@ -1,9 +1,6 @@
 'use server';
 
 import { persistAndDisplaySentimentData, type SentimentDataOutput } from "@/ai/flows/persist-and-display-sentiment-data";
-import { db } from "@/lib/firebase/firebase-admin";
-import { collection, getDocs, query, where, Timestamp, writeBatch } from "firebase/firestore";
-
 
 export async function fetchAndAnalyzeNews(ticker: string): Promise<{ data?: SentimentDataOutput; message?: string; error?: string }> {
   if (!ticker || typeof ticker !== 'string' || ticker.trim() === '') {
