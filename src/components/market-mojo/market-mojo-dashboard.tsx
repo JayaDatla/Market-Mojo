@@ -34,10 +34,11 @@ const createNewsQuery = (firestore: Firestore, ticker: string) => {
 export default function MarketMojoDashboard() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
-  const [ticker, setTicker] = useState('AAPL'); // Default to a ticker
-  const [tickerInput, setTickerInput] = useState('AAPL');
+  const [ticker, setTicker] = useState(''); // Don't default to a ticker
+  const [tickerInput, setTickerInput] = useState('');
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Not loading initially
+  const [hasSearched, setHasSearched] = useState(false); // Track if a search has been performed
   const { toast } = useToast();
   const router = useRouter();
 
@@ -57,7 +58,6 @@ export default function MarketMojoDashboard() {
   useEffect(() => {
     if (!newsQuery) {
         setNewsData([]); // Clear data if query is not available
-        setIsLoading(false);
         return;
     };
 
@@ -68,7 +68,7 @@ export default function MarketMojoDashboard() {
         data.push({ id: doc.id, ...doc.data() } as NewsArticle);
       });
       setNewsData(data);
-      if(data.length === 0) {
+      if(data.length === 0 && hasSearched) {
         toast({ variant: 'destructive', title: 'No Data', description: `No sentiment data found for ${ticker}. Try one of the top companies.` });
       }
       setIsLoading(false);
@@ -79,12 +79,15 @@ export default function MarketMojoDashboard() {
     });
 
     return () => unsubscribe();
-  }, [newsQuery, toast, ticker]);
+  }, [newsQuery, toast, ticker, hasSearched]);
   
 
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
+    if (!tickerToAnalyze) return;
+    setHasSearched(true);
     setTickerInput(tickerToAnalyze);
     setTicker(tickerToAnalyze);
+    setIsLoading(true);
     toast({ title: 'Loading Data', description: `Fetching sentiment analysis for ${tickerToAnalyze}.` });
   }, [toast]);
 
@@ -102,7 +105,7 @@ export default function MarketMojoDashboard() {
     );
   }
 
-  const showDashboard = newsData.length > 0;
+  const showDashboard = newsData.length > 0 && hasSearched;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -123,7 +126,7 @@ export default function MarketMojoDashboard() {
                   className="bg-background/50 border-border/50 text-base pl-10"
                 />
               </div>
-              <Button onClick={handleViewTicker} disabled={isLoading} className="px-6">
+              <Button onClick={handleViewTicker} disabled={isLoading || !tickerInput} className="px-6">
                 {isLoading ? <Loader2 className="animate-spin" /> : 'View'}
               </Button>
             </div>
