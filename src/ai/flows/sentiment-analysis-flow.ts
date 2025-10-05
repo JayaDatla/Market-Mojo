@@ -48,69 +48,35 @@ const sentimentAnalysisFlow = ai.defineFlow(
     outputSchema: TickerAnalysisOutputSchema,
   },
   async ({ ticker }) => {
-    const searchResult = await ai.runTool(googleAI.googleSearch, {
-        q: `financial news about ${ticker}`,
-        num: 5, // Look at the top 5 recent articles
-    });
-
-    if (!searchResult.results || searchResult.results.length === 0) {
-      return { analysis: [] };
-    }
     
-    const articlesToAnalyze = searchResult.results.map(r => ({
-        title: r.title,
-        url: r.url,
-        content: r.snippet,
-    }));
-    
-    const prompt = `
-        You are an expert financial sentiment analyst. For each of the following news articles, provide a one-sentence summary, determine if the sentiment is Positive, Negative, or Neutral, and provide a sentiment score from -1.0 to 1.0.
-
-        Analyze these articles for the ticker "${ticker}":
-        
-        ${articlesToAnalyze.map(a => `Article Title: ${a.title}\nURL: ${a.url}\nContent Snippet: ${a.content}`).join('\n\n')}
-
-        Respond with only a JSON object that conforms to the following Zod schema:
-        ${JSON.stringify(TickerAnalysisOutputSchema.describe('Your analysis results').jsonSchema())}
-      `;
-
-    const response = await fetch(process.env.PERPLEXITY_API_URL!, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+    const sentimentAnalysisPrompt = ai.definePrompt(
+        {
+            name: 'sentimentAnalysisPrompt',
+            input: {
+                schema: z.object({
+                    ticker: z.string(),
+                }),
+            },
+            output: {
+                schema: TickerAnalysisOutputSchema,
+            },
+            tools: [googleAI.googleSearch],
+            model: {
+              name: 'perplexity/llama-3-sonar-large-32k-online',
+              config: {
+                apiKey: process.env.PERPLEXITY_API_KEY
+              }
+            },
+            prompt: `
+                You are an expert financial sentiment analyst. 
+                Find the top 5 recent news articles about the company with the stock ticker "{{ticker}}".
+                For each of the articles, provide a one-sentence summary, determine if the sentiment is Positive, Negative, or Neutral, and provide a sentiment score from -1.0 to 1.0.
+            `
         },
-        body: JSON.stringify({
-            model: 'perplexity/llama-3-sonar-large-32k-online',
-            messages: [{ role: 'user', content: prompt }],
-            response_format: { type: 'json_object' },
-        }),
-    });
+    )
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Perplexity API Error: ${response.status} ${errorText}`);
-    }
+    const result = await sentimentAnalysisPrompt({ticker});
 
-    const jsonResponse = await response.json();
-    const content = jsonResponse.choices[0]?.message?.content;
-    
-    if (!content) {
-        throw new Error('No content in Perplexity API response');
-    }
-
-    try {
-        const parsedOutput = JSON.parse(content);
-        // Validate the parsed output against the Zod schema
-        const validation = TickerAnalysisOutputSchema.safeParse(parsedOutput);
-        if (!validation.success) {
-            console.error('Perplexity response validation error:', validation.error.errors);
-            throw new Error('Perplexity response does not match the expected schema.');
-        }
-        return validation.data;
-    } catch (e) {
-        console.error('Error parsing Perplexity response:', e);
-        throw new Error('Failed to parse analysis from Perplexity API.');
-    }
+    return result.output!;
   }
 );
