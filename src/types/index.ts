@@ -10,3 +10,15 @@ export type NewsArticle = {
   timestamp: Timestamp;
   ticker: string;
 };
+
+export type ArticleAnalysis = {
+  title: string;
+  url: string;
+  summary: string;
+  sentiment: 'Positive' | 'Negative' | 'Neutral';
+  sentiment_score: number;
+};
+
+export type TickerAnalysisOutput = {
+  analysis: ArticleAnalysis[];
+};

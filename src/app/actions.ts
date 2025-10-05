@@ -1,10 +1,10 @@
 'use server';
 
-import { analyzeTicker } from "@/ai/flows/sentiment-analysis-flow";
+import { analyzeTicker as analyzeTickerFlow } from "@/ai/flows/sentiment-analysis-flow";
 
 export async function fetchAndAnalyzeNews(ticker: string) {
     try {
-        const result = await analyzeTicker({ ticker });
+        const result = await analyzeTickerFlow(ticker);
         return result;
     } catch (error: any) {
         console.error('Error analyzing ticker:', error);
