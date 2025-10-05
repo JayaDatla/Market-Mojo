@@ -129,15 +129,15 @@ export default function MarketMojoDashboard() {
       <div className="container mx-auto px-4 py-8 flex-grow">
         <div className="max-w-3xl mx-auto mb-12 text-center">
             <h2 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-400 mb-4 tracking-tighter animate-gradient-x">Market Sentiment Analyzer</h2>
-            <p className="text-lg text-muted-foreground">Enter a ticker or select a company below to run a real-time news sentiment analysis.</p>
+            <p className="text-lg text-muted-foreground">Enter a ticker or company name below to run a real-time news sentiment analysis.</p>
             <div className="mt-6 max-w-xl mx-auto flex items-center gap-2">
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Enter a stock ticker (e.g., TSLA)"
+                  placeholder="Enter a ticker or company name (e.g., TSLA)"
                   value={tickerInput}
-                  onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
+                  onChange={(e) => setTickerInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleViewTicker()}
                   className="bg-background/50 border-border/50 text-base pl-10"
                 />

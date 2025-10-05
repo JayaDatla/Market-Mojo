@@ -6,10 +6,11 @@ import type { TickerAnalysisOutput } from '@/types';
 const API_URL = "https://api.perplexity.ai/chat/completions";
 const MODEL = "sonar"; // Switched to the correct model name
 
-const generatePrompt = (ticker: string) => `
+const generatePrompt = (tickerOrName: string) => `
 You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
 
-Search the web to find the top 5 most recent news articles for the company identified by the user as "${ticker}".
+The user has provided the following identifier: "${tickerOrName}". This could be a stock ticker or the company's name.
+Search the web to find the top 5 most recent news articles for the specified company.
 
 Strictly analyze these news snippets for their immediate impact on investor perception and stock price, ignoring all non-financial context.
 For each article, provide a one-sentence summary, determine if the sentiment is "Positive", "Negative", or "Neutral", and provide a sentiment_score from -1.0 to 1.0.
@@ -27,9 +28,9 @@ Your response MUST be a single, valid JSON array of objects, and nothing else. D
 `;
 
 export async function fetchAndAnalyzeNews(
-  ticker: string
+  tickerOrName: string
 ): Promise<TickerAnalysisOutput> {
-  const prompt = generatePrompt(ticker);
+  const prompt = generatePrompt(tickerOrName);
   
   if (!process.env.PERPLEXITY_API_KEY) {
     throw new Error("PERPLEXITY_API_KEY is not set in the environment variables.");
@@ -79,9 +80,9 @@ export async function fetchAndAnalyzeNews(
     }
 
   } catch (e: any) {
-    console.error(`Error analyzing ticker ${ticker}:`, e);
+    console.error(`Error analyzing ticker ${tickerOrName}:`, e);
     return {
-      error: e.message || `An unexpected error occurred while analyzing ${ticker}.`,
+      error: e.message || `An unexpected error occurred while analyzing ${tickerOrName}.`,
     };
   }
 }
