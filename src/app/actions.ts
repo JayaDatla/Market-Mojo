@@ -1,11 +1,18 @@
-
 'use server';
 
-import type { TickerAnalysisOutput, ArticleAnalysis } from "@/types";
+import { analyzeTicker } from '@/ai/flows/sentiment-analysis-flow';
+import type { TickerAnalysisOutput } from '@/types';
 
-export async function fetchAndAnalyzeNews(ticker: string): Promise<TickerAnalysisOutput> {
-    // This function body is now handled by the Genkit flow.
-    // The existing implementation can be removed or kept as a fallback.
-    // For this example, we assume the Genkit flow is the primary mechanism.
-    return { error: 'Direct API calls are deprecated. Use Genkit flow.' };
+export async function fetchAndAnalyzeNews(
+  ticker: string
+): Promise<TickerAnalysisOutput> {
+  try {
+    const result = await analyzeTicker(ticker);
+    return result;
+  } catch (e: any) {
+    console.error(`Error analyzing ticker ${ticker}:`, e);
+    return {
+      error: e.message || `An unexpected error occurred while analyzing ${ticker}.`,
+    };
+  }
 }

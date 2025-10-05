@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useCallback, useTransition } from 'react';
-import { analyzeTicker } from '@/ai/flows/sentiment-analysis-flow';
+import { fetchAndAnalyzeNews } from '@/app/actions';
 import type { NewsArticle, TickerAnalysisOutput } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
@@ -44,7 +44,7 @@ export default function MarketMojoDashboard() {
 
       for (let i = 0; i <= MAX_RETRIES; i++) {
         try {
-          const analysisResult = await analyzeTicker(tickerToAnalyze);
+          const analysisResult = await fetchAndAnalyzeNews(tickerToAnalyze);
           result = analysisResult;
           setRawApiData(analysisResult);
           
@@ -173,7 +173,7 @@ export default function MarketMojoDashboard() {
               <InvestmentSuggestion newsData={newsData} priceData={currentPriceData} />
               <NewsFeed newsData={newsData.slice(0, 5)} />
             </div>
-            <div className="lg:col-span-1 space-y-8">
+            <div className="space-y-8">
               <div className="sticky top-24 space-y-8">
                   <StaticAnalysis ticker={ticker} />
                   <TopCompanies onCompanySelect={handleCompanySelect} />
