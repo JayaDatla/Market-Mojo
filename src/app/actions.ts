@@ -6,8 +6,8 @@ export async function fetchAndAnalyzeNews(ticker: string) {
     try {
         const result = await analyzeTicker({ ticker });
         return result;
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error analyzing ticker:', error);
-        return { error: 'Failed to analyze ticker.' };
+        return { error: error.message || 'Failed to analyze ticker.' };
     }
 }
