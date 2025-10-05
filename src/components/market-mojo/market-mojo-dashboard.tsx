@@ -18,6 +18,7 @@ export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
   const [tickerInput, setTickerInput] = useState('');
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
+  const [rawApiData, setRawApiData] = useState<any>(null);
   const [isAnalyzing, startTransition] = useTransition();
   const [hasSearched, setHasSearched] = useState(false);
   const [noResults, setNoResults] = useState(false);
@@ -29,10 +30,12 @@ export default function MarketMojoDashboard() {
     setHasSearched(true);
     setNoResults(false);
     setNewsData([]);
+    setRawApiData(null);
     setTicker(tickerToAnalyze);
 
     startTransition(async () => {
       const result = await fetchAndAnalyzeNews(tickerToAnalyze);
+      setRawApiData(result);
 
       if (result.error || !result.analysis || result.analysis.length === 0) {
         setNoResults(true);
@@ -101,13 +104,13 @@ export default function MarketMojoDashboard() {
             </div>
         </div>
 
-        {hasSearched && !isLoading && (
+        {hasSearched && !isLoading && rawApiData && (
           <Accordion type="single" collapsible className="w-full mb-8 max-w-3xl mx-auto">
             <AccordionItem value="item-1">
               <AccordionTrigger>View Fetched API Data</AccordionTrigger>
               <AccordionContent>
                 <pre className="p-4 bg-muted rounded-md text-xs overflow-x-auto">
-                  <code>{JSON.stringify(newsData, null, 2)}</code>
+                  <code>{JSON.stringify(rawApiData, null, 2)}</code>
                 </pre>
               </AccordionContent>
             </AccordionItem>

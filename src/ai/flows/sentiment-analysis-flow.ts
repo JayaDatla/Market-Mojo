@@ -2,6 +2,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const TickerAnalysisInputSchema = z.object({
   ticker: z.string().describe('The stock ticker symbol to analyze.'),
@@ -50,9 +51,10 @@ const sentimentAnalysisPrompt = ai.definePrompt({
     schema: TickerAnalysisOutputSchema,
   },
   model: 'gemini-1.5-flash',
+  tools: [googleAI.googleSearch],
   prompt: `
         You are an expert financial sentiment analyst.
-        Find the top 5 recent news articles about the company with the stock ticker "{{ticker}}".
+        Use the googleSearch tool to find the top 5 recent news articles about the company with the stock ticker "{{ticker}}".
         For each of the articles, provide a one-sentence summary, determine if the sentiment is Positive, Negative, or Neutral, and provide a sentiment-score from -1.0 to 1.0.
       `,
 });
