@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -5,6 +6,7 @@ import { signInAnonymously, User } from 'firebase/auth';
 import { collection, query, where, onSnapshot, orderBy, Firestore } from 'firebase/firestore';
 import { useFirebase, useUser, useMemoFirebase } from '@/firebase';
 import { fetchAndAnalyzeNews } from '@/app/actions';
+import { useRouter } from 'next/navigation';
 
 import type { NewsArticle } from '@/types';
 
@@ -39,15 +41,14 @@ export default function MarketMojoDashboard() {
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
-    if (!isUserLoading && !user && auth) {
-      signInAnonymously(auth).catch((error) => {
-        console.error("Anonymous sign-in error", error);
-        toast({ variant: 'destructive', title: 'Authentication Error', description: 'Could not sign in anonymously.' });
-      });
+    if (!isUserLoading && !user) {
+        router.push('/login');
     }
-  }, [isUserLoading, user, auth, toast]);
+  }, [isUserLoading, user, router]);
+
 
   const newsQuery = useMemoFirebase(() => {
     if (!firestore || !ticker) return null;
@@ -103,31 +104,45 @@ export default function MarketMojoDashboard() {
   
   const showDashboard = useMemo(() => newsData.length > 0, [newsData]);
 
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
-      <Header userId={user?.uid ?? null} />
+      <Header />
       <div className="container mx-auto px-4 py-8 flex-grow">
-        <div className="max-w-2xl mx-auto mb-12">
-            <h2 className="text-4xl md:text-5xl font-bold text-center text-foreground mb-4">Market Sentiment Analyzer</h2>
-            <p className="text-lg text-muted-foreground text-center">Enter a stock ticker to get real-time news sentiment analysis.</p>
+        <div className="max-w-3xl mx-auto mb-12">
+            <h2 className="text-4xl md:text-5xl font-bold text-center text-foreground mb-4 tracking-tighter">Market Sentiment Analyzer</h2>
+            <p className="text-lg text-muted-foreground text-center">Enter a stock ticker to get real-time news sentiment analysis powered by AI.</p>
         </div>
         <div className="max-w-2xl mx-auto mb-12">
-            <form onSubmit={handleFetchAndAnalyze} className="flex items-center gap-2 bg-background/10 border p-1 rounded-full">
+            <form onSubmit={handleFetchAndAnalyze} className="flex items-center gap-2 bg-card border border-border/50 p-1.5 rounded-full shadow-lg">
+              <Search className="ml-4 text-muted-foreground" />
               <Input
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="Enter a stock ticker (e.g. TSLA, AAPL)"
-                className="flex-grow text-base h-12 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="flex-grow text-base h-11 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 aria-label="Stock Ticker Input"
               />
-              <Button type="submit" disabled={isLoading || isUserLoading} className="h-10 w-10 rounded-full" size="icon">
-                {isLoading || isUserLoading ? <Loader2 className="animate-spin" /> : <Search />}
+              <Button type="submit" disabled={isLoading} className="h-10 w-24 rounded-full" size="sm">
+                {isLoading ? <Loader2 className="animate-spin" /> : 'Analyze'}
               </Button>
             </form>
         </div>
         
-        {showDashboard ? (
+        {(isLoading && newsData.length === 0) ? (
+          <div className="text-center py-16">
+            <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
+            <p className="text-muted-foreground mt-4">Analyzing sentiment...</p>
+          </div>
+        ) : showDashboard ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               <SentimentCharts newsData={newsData} />
@@ -138,15 +153,12 @@ export default function MarketMojoDashboard() {
             </div>
           </div>
         ) : (
-          <div className="text-center py-16">
-            {isLoading || isUserLoading ? (
-              <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
-            ) : (
-              <p className="text-muted-foreground text-lg">Enter a stock ticker to begin sentiment analysis.</p>
-            )}
+          <div className="text-center py-16 border border-dashed border-border/50 rounded-lg">
+            <p className="text-muted-foreground text-lg">Enter a stock ticker to begin sentiment analysis.</p>
           </div>
         )}
       </div>
     </div>
   );
 }
+
