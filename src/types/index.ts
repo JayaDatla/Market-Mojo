@@ -14,11 +14,13 @@ export type NewsArticle = {
 export type ArticleAnalysis = {
   title: string;
   url: string;
-  summary: string;
+  summary:string;
   sentiment: 'Positive' | 'Negative' | 'Neutral';
   sentiment_score: number;
 };
 
+// This type represents the direct output from the Perplexity API call
 export type TickerAnalysisOutput = {
-  analysis: ArticleAnalysis[];
+  analysis?: ArticleAnalysis[];
+  error?: string;
 };
