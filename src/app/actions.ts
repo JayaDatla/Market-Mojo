@@ -3,7 +3,7 @@
 import type { TickerAnalysisOutput, ArticleAnalysis } from "@/types";
 
 const API_URL = "https://api.perplexity.ai/chat/completions";
-const MODEL = "sonar-small-online"; 
+const MODEL = "sonar"; 
 
 function generatePrompt(ticker: string): string {
     return `
@@ -56,10 +56,8 @@ export async function fetchAndAnalyzeNews(ticker: string): Promise<TickerAnalysi
             body: JSON.stringify({
                 model: MODEL,
                 messages: [
-                    { role: "system", content: "You are a financial analyst who provides responses in valid JSON format." },
                     { role: "user", content: prompt }
                 ],
-                temperature: 0.2, // Lower temperature for more deterministic JSON output
             })
         });
 
