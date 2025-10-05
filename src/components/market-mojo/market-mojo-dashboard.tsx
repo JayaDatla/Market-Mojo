@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, orderBy, Firestore } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Firestore, Timestamp, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { fetchAndAnalyzeNews, saveAnalysisResults } from '@/app/actions';
+import { fetchAndAnalyzeNews } from '@/app/actions';
 import { useRouter } from 'next/navigation';
-
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import type { NewsArticle } from '@/types';
 
 import { Button } from '@/components/ui/button';
@@ -77,18 +77,59 @@ export default function MarketMojoDashboard() {
     return () => unsubscribe();
   }, [newsQuery, toast]);
 
-  const handleFetchAndAnalyze = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!inputValue) {
+  const saveAnalysisResultsClientSide = useCallback(async (tickerToSave: string, results: any[]) => {
+      if (!firestore) {
+          toast({ variant: 'destructive', title: 'Save Error', description: 'Database not available.' });
+          return;
+      }
+      const appId = process.env.NEXT_PUBLIC_APP_ID || '__app_id';
+      const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
+      const collectionRef = collection(firestore, collectionPath);
+      
+      try {
+          const batch = writeBatch(firestore);
+          results.forEach((result) => {
+              const docRef = collectionRef.doc(); // Firestore will auto-generate an ID on the client
+              batch.set(docRef, {
+                  ...result,
+                  ticker: tickerToSave.toUpperCase(),
+                  timestamp: serverTimestamp(), // Use client-side timestamp placeholder
+              });
+          });
+          await batch.commit(); // commit the batch
+          toast({ title: 'Success', description: 'New analysis saved.'});
+      } catch (error) {
+          console.error('Error saving results on client:', error);
+          const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+          toast({ variant: 'destructive', title: 'Save Error', description: `Failed to save results: ${errorMessage}` });
+      }
+  }, [firestore, toast]);
+  
+
+  const handleFetchAndAnalyze = useCallback(async (tickerToAnalyze: string) => {
+    if (!tickerToAnalyze) {
       toast({ variant: 'destructive', title: 'Input Error', description: 'Please enter a stock ticker.' });
       return;
     }
-    
-    setIsLoading(true);
-    const currentTicker = inputValue;
-    setTicker(currentTicker); // Set ticker to trigger Firestore listener update
 
-    const result = await fetchAndAnalyzeNews(currentTicker);
+    setIsLoading(true);
+    setTicker(tickerToAnalyze); // Update the active ticker to trigger listener
+    setInputValue(tickerToAnalyze);
+
+    // 1. Check if recent data exists on the client
+    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const hasRecentData = newsData.some(
+      (item) => item.ticker.toUpperCase() === tickerToAnalyze.toUpperCase() && item.timestamp?.toDate().getTime() > twentyFourHoursAgo
+    );
+
+    if (hasRecentData) {
+        toast({ title: 'Analysis Status', description: 'Recent analysis already available. Displaying cached results.' });
+        setIsLoading(false);
+        return;
+    }
+
+    // 2. If not, fetch new analysis from the server
+    const result = await fetchAndAnalyzeNews(tickerToAnalyze);
 
     if (result.error) {
       toast({ variant: 'destructive', title: 'Analysis Error', description: result.error });
@@ -99,45 +140,20 @@ export default function MarketMojoDashboard() {
       toast({ title: 'Analysis Status', description: result.message });
     }
 
-    // If new data was fetched, save it from the client
+    // 3. If new data was fetched, save it from the client
     if (result.data?.results) {
-        const saveResult = await saveAnalysisResults(currentTicker, result.data.results);
-        if (saveResult.error) {
-            toast({ variant: 'destructive', title: 'Save Error', description: saveResult.error });
-        } else {
-            toast({ title: 'Success', description: 'New analysis saved.'});
-        }
+        await saveAnalysisResultsClientSide(tickerToAnalyze, result.data.results);
     }
     
     // The onSnapshot listener will update the UI, so we just need to stop the loading indicator
     setTimeout(() => setIsLoading(false), 500); // Give a moment for Firestore to sync
+  }, [newsData, saveAnalysisResultsClientSide, toast]);
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleFetchAndAnalyze(inputValue);
   };
   
-  const handleCompanySelect = (selectedTicker: string) => {
-    setInputValue(selectedTicker);
-    setTicker(selectedTicker);
-    setIsLoading(true);
-    fetchAndAnalyzeNews(selectedTicker).then(async (result) => {
-        if (result.error) {
-            toast({ variant: 'destructive', title: 'Analysis Error', description: result.error });
-            setIsLoading(false);
-            return;
-        }
-        if (result.message) {
-            toast({ title: 'Analysis Status', description: result.message });
-        }
-        if (result.data?.results) {
-            const saveResult = await saveAnalysisResults(selectedTicker, result.data.results);
-            if(saveResult.error){
-                toast({ variant: 'destructive', title: 'Save Error', description: saveResult.error });
-            } else {
-                toast({ title: 'Success', description: 'New analysis saved.'});
-            }
-        }
-        setTimeout(() => setIsLoading(false), 500);
-    });
-  }
-
   const showDashboard = useMemo(() => newsData.length > 0, [newsData]);
 
   if (isUserLoading || !user) {
@@ -157,7 +173,7 @@ export default function MarketMojoDashboard() {
             <p className="text-lg text-muted-foreground text-center">Enter a stock ticker or select a company below to get real-time news sentiment analysis powered by AI.</p>
         </div>
         <div className="max-w-2xl mx-auto mb-12">
-            <form onSubmit={handleFetchAndAnalyze} className="flex items-center gap-2 bg-card border border-border/50 p-1.5 rounded-full shadow-lg">
+            <form onSubmit={handleFormSubmit} className="flex items-center gap-2 bg-card border border-border/50 p-1.5 rounded-full shadow-lg">
               <Search className="ml-4 text-muted-foreground" />
               <Input
                 type="text"
@@ -189,7 +205,7 @@ export default function MarketMojoDashboard() {
             </div>
           </div>
         ) : (
-          <TopCompanies onCompanySelect={handleCompanySelect} />
+          <TopCompanies onCompanySelect={handleFetchAndAnalyze} />
         )}
       </div>
     </div>
