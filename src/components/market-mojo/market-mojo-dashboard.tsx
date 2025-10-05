@@ -44,13 +44,6 @@ export default function MarketMojoDashboard() {
   const { toast } = useToast();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-        router.push('/login');
-    }
-  }, [isUserLoading, user, router]);
-
-
   const newsQuery = useMemoFirebase(() => {
     if (!firestore || !ticker) return null;
     return createNewsQuery(firestore, ticker);
@@ -101,7 +94,7 @@ export default function MarketMojoDashboard() {
     }
   }
 
-  if (isUserLoading || !user) {
+  if (isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
