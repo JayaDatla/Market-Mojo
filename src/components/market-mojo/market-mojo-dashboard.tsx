@@ -126,6 +126,19 @@ export default function MarketMojoDashboard() {
               </Button>
             </div>
         </div>
+
+        {hasSearched && !isLoading && (
+          <Accordion type="single" collapsible className="w-full mb-8 max-w-3xl mx-auto">
+            <AccordionItem value="item-1">
+              <AccordionTrigger>View Fetched API Data</AccordionTrigger>
+              <AccordionContent>
+                <pre className="p-4 bg-muted rounded-md text-xs overflow-x-auto">
+                  <code>{JSON.stringify(newsData, null, 2)}</code>
+                </pre>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
         
         {isLoading && hasSearched ? (
           <div className="text-center py-16">
@@ -133,28 +146,16 @@ export default function MarketMojoDashboard() {
             <p className="text-muted-foreground mt-4">Loading data for {ticker}...</p>
           </div>
         ) : showDashboard ? (
-          <>
-            <Accordion type="single" collapsible className="w-full mb-8 max-w-3xl mx-auto">
-              <AccordionItem value="item-1">
-                <AccordionTrigger>View Fetched API Data</AccordionTrigger>
-                <AccordionContent>
-                  <pre className="p-4 bg-muted rounded-md text-xs overflow-x-auto">
-                    <code>{JSON.stringify(newsData, null, 2)}</code>
-                  </pre>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-8">
-                <SentimentCharts newsData={newsData} />
-                <NewsFeed newsData={newsData.slice(0, 5)} />
-              </div>
-              <div className="lg:col-span-1 space-y-8">
-                <StaticAnalysis ticker={ticker} />
-                <TopCompanies onCompanySelect={handleCompanySelect} />
-              </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-8">
+              <SentimentCharts newsData={newsData} />
+              <NewsFeed newsData={newsData.slice(0, 5)} />
             </div>
-          </>
+            <div className="lg:col-span-1 space-y-8">
+              <StaticAnalysis ticker={ticker} />
+              <TopCompanies onCompanySelect={handleCompanySelect} />
+            </div>
+          </div>
         ) : showNoResults ? (
             <div className="text-center py-16 bg-card border border-dashed border-border/50 rounded-lg max-w-3xl mx-auto">
                 <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
