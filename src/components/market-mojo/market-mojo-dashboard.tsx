@@ -1,8 +1,9 @@
+
 'use client';
 
-import { useState, useEffect, useCallback, useTransition } from 'react';
+import { useState, useCallback, useTransition } from 'react';
 import { fetchAndAnalyzeNews } from '@/app/actions';
-import type { NewsArticle } from '@/types';
+import type { NewsArticle, TickerAnalysisOutput } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
@@ -14,11 +15,14 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
+type AnalysisCache = Record<string, TickerAnalysisOutput>;
+
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
   const [tickerInput, setTickerInput] = useState('');
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
   const [rawApiData, setRawApiData] = useState<any>(null);
+  const [analysisCache, setAnalysisCache] = useState<AnalysisCache>({});
   const [isAnalyzing, startTransition] = useTransition();
   const [hasSearched, setHasSearched] = useState(false);
   const [noResults, setNoResults] = useState(false);
@@ -35,39 +39,60 @@ export default function MarketMojoDashboard() {
 
     startTransition(async () => {
       const result = await fetchAndAnalyzeNews(tickerToAnalyze);
-      setRawApiData(result);
+      
+      const processResult = (analysisResult: TickerAnalysisOutput) => {
+        if (!analysisResult.analysis || analysisResult.analysis.length === 0) return [];
+        return analysisResult.analysis.map((item, index) => ({
+          id: `${tickerToAnalyze}-${index}-${Date.now()}`,
+          newsTitle: item.title,
+          summary: item.summary,
+          sentimentScore: item.sentiment_score,
+          sentimentLabel: item.sentiment,
+          sourceUri: item.url,
+          timestamp: { toDate: () => new Date() } as any,
+          ticker: tickerToAnalyze,
+        }));
+      };
 
       if (result.error || !result.analysis || result.analysis.length === 0) {
-        setNoResults(true);
-        toast({
-          variant: 'destructive',
-          title: 'Analysis Failed',
-          description: result.error || 'No news articles could be analyzed for this ticker.',
-        });
-        return;
+        // API call failed or returned no data, check cache
+        const cachedData = analysisCache[tickerToAnalyze];
+        if (cachedData && cachedData.analysis) {
+          setRawApiData(cachedData.rawResponse);
+          const articles = processResult(cachedData);
+          setNewsData(articles);
+          toast({
+            title: 'Live Analysis Failed',
+            description: `Showing previously cached data for ${tickerToAnalyze}.`,
+          });
+        } else {
+          // No cached data either
+          setRawApiData(result); // Show error response if available
+          setNoResults(true);
+          toast({
+            variant: 'destructive',
+            title: 'Analysis Failed',
+            description: result.error || 'No news articles could be analyzed for this ticker.',
+          });
+        }
+      } else {
+        // API call was successful
+        setRawApiData(result.rawResponse);
+        const articles = processResult(result);
+        setNewsData(articles);
+        // Update cache with the new successful result
+        setAnalysisCache(prevCache => ({
+          ...prevCache,
+          [tickerToAnalyze]: result,
+        }));
       }
-
-      const articles: NewsArticle[] = result.analysis.map((item, index) => ({
-        id: `${tickerToAnalyze}-${index}-${Date.now()}`,
-        newsTitle: item.title,
-        summary: item.summary,
-        sentimentScore: item.sentiment_score,
-        sentimentLabel: item.sentiment,
-        sourceUri: item.url,
-        // The AI doesn't provide a timestamp, so we use the current date
-        // This is a limitation we accept for now.
-        timestamp: { toDate: () => new Date() } as any,
-        ticker: tickerToAnalyze,
-      }));
-
-      setNewsData(articles);
     });
   };
 
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, []);
+  }, [handleAnalysis]);
 
   const handleViewTicker = () => {
     if (tickerInput) {
@@ -131,8 +156,8 @@ export default function MarketMojoDashboard() {
             </div>
             <div className="lg:col-span-1">
               <div className="sticky top-24 space-y-8">
-                <StaticAnalysis ticker={ticker} />
-                <TopCompanies onCompanySelect={handleCompanySelect} />
+                  <StaticAnalysis ticker={ticker} />
+                  <TopCompanies onCompanySelect={handleCompanySelect} />
               </div>
             </div>
           </div>

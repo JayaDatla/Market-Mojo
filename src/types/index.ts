@@ -1,3 +1,4 @@
+
 import type { Timestamp } from "firebase/firestore";
 
 export type NewsArticle = {
@@ -23,4 +24,5 @@ export type ArticleAnalysis = {
 export type TickerAnalysisOutput = {
   analysis?: ArticleAnalysis[];
   error?: string;
+  rawResponse?: any;
 };

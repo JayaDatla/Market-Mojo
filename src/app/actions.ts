@@ -1,3 +1,4 @@
+
 'use server';
 
 import type { TickerAnalysisOutput, ArticleAnalysis } from "@/types";
@@ -60,35 +61,34 @@ export async function fetchAndAnalyzeNews(ticker: string): Promise<TickerAnalysi
                 ],
             })
         });
+        
+        const rawResponse = await response.json();
 
         if (!response.ok) {
-            const errorBody = await response.text();
-            console.error(`Perplexity API Error: ${response.status}`, errorBody);
-            return { error: `API request failed with status ${response.status}.` };
+            console.error(`Perplexity API Error: ${response.status}`, rawResponse);
+            return { error: `API request failed with status ${response.status}.`, rawResponse };
         }
 
-        const result = await response.json();
-        const content = result.choices[0]?.message?.content;
+        const content = rawResponse.choices[0]?.message?.content;
 
         if (!content) {
-            console.error('No content in Perplexity API response', result);
-            return { error: 'No content received from analysis service.' };
+            console.error('No content in Perplexity API response', rawResponse);
+            return { error: 'No content received from analysis service.', rawResponse };
         }
 
         try {
-            // The API returns a JSON string within the content field, so we need to parse it.
             const parsedContent: { analysis: ArticleAnalysis[] } = JSON.parse(content);
 
             if (!parsedContent.analysis || !Array.isArray(parsedContent.analysis)) {
                 console.error('Parsed content is not in the expected format', parsedContent);
-                return { error: 'Analysis result is in an unexpected format.' };
+                return { error: 'Analysis result is in an unexpected format.', rawResponse };
             }
             
-            return { analysis: parsedContent.analysis };
+            return { analysis: parsedContent.analysis, rawResponse };
         } catch (jsonError: any) {
             console.error('Failed to parse JSON content from Perplexity API:', jsonError);
             console.log('Raw content received:', content);
-            return { error: 'Failed to parse the analysis result.' };
+            return { error: 'Failed to parse the analysis result.', rawResponse: { ...rawResponse, rawContent: content } };
         }
 
     } catch (error: any) {
