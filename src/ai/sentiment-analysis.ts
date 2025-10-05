@@ -42,7 +42,7 @@ const sentimentAnalysisPrompt = ai.definePrompt({
   output: {
     schema: TickerAnalysisOutputSchema,
   },
-  model: 'perplexity/sonar-small-online',
+  model: 'gemini-1.5-pro',
   prompt: `
         You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
         
