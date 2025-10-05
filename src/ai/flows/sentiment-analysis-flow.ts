@@ -2,7 +2,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { googleAI } from '@genkit-ai/google-genai';
 
 const TickerAnalysisInputSchema = z.object({
   ticker: z.string().describe('The stock ticker symbol to analyze.'),
@@ -37,29 +36,26 @@ const TickerAnalysisOutputSchema = z.object({
 export async function analyzeTicker(
   input: z.infer<typeof TickerAnalysisInputSchema>
 ): Promise<z.infer<typeof TickerAnalysisOutputSchema>> {
-    return await sentimentAnalysisFlow(input);
+  return await sentimentAnalysisFlow(input);
 }
 
-const sentimentAnalysisPrompt = ai.definePrompt(
-    {
-        name: 'sentimentAnalysisPrompt',
-        input: {
-            schema: z.object({
-                ticker: z.string(),
-            }),
-        },
-        output: {
-            schema: TickerAnalysisOutputSchema,
-        },
-        tools: [googleAI.googleSearch],
-        model: 'gemini-1.5-flash',
-        prompt: `
-          You are an expert financial sentiment analyst. 
-          Find the top 5 recent news articles about the company with the stock ticker "{{ticker}}".
-          For each of the articles, provide a one-sentence summary, determine if the sentiment is Positive, Negative, or Neutral, and provide a sentiment-score from -1.0 to 1.0.
-        `
-    },
-)
+const sentimentAnalysisPrompt = ai.definePrompt({
+  name: 'sentimentAnalysisPrompt',
+  input: {
+    schema: z.object({
+      ticker: z.string(),
+    }),
+  },
+  output: {
+    schema: TickerAnalysisOutputSchema,
+  },
+  model: 'gemini-1.5-flash',
+  prompt: `
+        You are an expert financial sentiment analyst.
+        Find the top 5 recent news articles about the company with the stock ticker "{{ticker}}".
+        For each of the articles, provide a one-sentence summary, determine if the sentiment is Positive, Negative, or Neutral, and provide a sentiment-score from -1.0 to 1.0.
+      `,
+});
 
 const sentimentAnalysisFlow = ai.defineFlow(
   {
@@ -68,14 +64,13 @@ const sentimentAnalysisFlow = ai.defineFlow(
     outputSchema: TickerAnalysisOutputSchema,
   },
   async ({ ticker }) => {
-    
-    const searchResult = await sentimentAnalysisPrompt({ticker});
+    const searchResult = await sentimentAnalysisPrompt({ ticker });
     const articles = searchResult.output?.analysis;
 
     if (!articles || articles.length === 0) {
       return { analysis: [] };
     }
-    
+
     return { analysis: articles };
   }
 );
