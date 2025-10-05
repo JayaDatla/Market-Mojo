@@ -77,7 +77,10 @@ const persistAndDisplaySentimentDataFlow = ai.defineFlow(
           return { results: [] };
       }
 
+      // Temporarily disabled to prevent API calls
       const { output } = await sentimentAnalysisPrompt(input);
+      // const output = null;
+
 
       if (output && output.results) {
         // Save the sentiment analysis results to Firestore
@@ -94,7 +97,7 @@ const persistAndDisplaySentimentDataFlow = ai.defineFlow(
 
         return output;
       } else {
-        console.error("No output from sentimentAnalysisPrompt");
+        // console.error("No output from sentimentAnalysisPrompt");
         return { results: [] }; // Return an empty array if there's no output.
       }
     } catch (error: any) {
