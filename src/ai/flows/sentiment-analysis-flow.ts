@@ -40,6 +40,26 @@ export async function analyzeTicker(
     return await sentimentAnalysisFlow(input);
 }
 
+const sentimentAnalysisPrompt = ai.definePrompt(
+    {
+        name: 'sentimentAnalysisPrompt',
+        input: {
+            schema: z.object({
+                ticker: z.string(),
+            }),
+        },
+        output: {
+            schema: TickerAnalysisOutputSchema,
+        },
+        tools: [googleAI.googleSearch],
+        model: 'gemini-1.5-flash',
+        prompt: `
+          You are an expert financial sentiment analyst. 
+          Find the top 5 recent news articles about the company with the stock ticker "{{ticker}}".
+          For each of the articles, provide a one-sentence summary, determine if the sentiment is Positive, Negative, or Neutral, and provide a sentiment-score from -1.0 to 1.0.
+        `
+    },
+)
 
 const sentimentAnalysisFlow = ai.defineFlow(
   {
@@ -49,27 +69,6 @@ const sentimentAnalysisFlow = ai.defineFlow(
   },
   async ({ ticker }) => {
     
-    const sentimentAnalysisPrompt = ai.definePrompt(
-        {
-            name: 'sentimentAnalysisPrompt',
-            input: {
-                schema: z.object({
-                    ticker: z.string(),
-                }),
-            },
-            output: {
-                schema: TickerAnalysisOutputSchema,
-            },
-            tools: [googleAI.googleSearch],
-            model: 'gemini-1.5-flash',
-            prompt: `
-              You are an expert financial sentiment analyst. 
-              Find the top 5 recent news articles about the company with the stock ticker "{{ticker}}".
-              For each of the articles, provide a one-sentence summary, determine if the sentiment is Positive, Negative, or Neutral, and provide a sentiment-score from -1.0 to 1.0.
-            `
-        },
-    )
-
     const searchResult = await sentimentAnalysisPrompt({ticker});
     const articles = searchResult.output?.analysis;
 
