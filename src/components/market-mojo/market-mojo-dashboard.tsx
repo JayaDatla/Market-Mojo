@@ -3,8 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, onSnapshot, orderBy, Firestore } from 'firebase/firestore';
-import { useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { useRouter } from 'next/navigation';
+import { useFirebase, useMemoFirebase } from '@/firebase';
 import type { NewsArticle } from '@/types';
 
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +16,13 @@ import StaticAnalysis from './static-analysis';
 import TopCompanies from './top-companies';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+
 
 // Helper function to create the query
 const createNewsQuery = (firestore: Firestore, ticker: string) => {
@@ -50,6 +56,7 @@ export default function MarketMojoDashboard() {
   useEffect(() => {
     if (!newsQuery) {
         setNewsData([]);
+        setIsLoading(false);
         return;
     };
 
@@ -63,7 +70,9 @@ export default function MarketMojoDashboard() {
       });
       
       setNewsData(data);
-      setNoResults(data.length === 0);
+      if (hasSearched) {
+        setNoResults(data.length === 0);
+      }
       setIsLoading(false);
 
     }, (error) => {
@@ -73,7 +82,7 @@ export default function MarketMojoDashboard() {
     });
 
     return () => unsubscribe();
-  }, [newsQuery, toast]);
+  }, [newsQuery, toast, hasSearched]);
   
 
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
@@ -85,7 +94,8 @@ export default function MarketMojoDashboard() {
 
   const handleViewTicker = () => {
     if (tickerInput) {
-      handleCompanySelect(tickerInput);
+      setHasSearched(true);
+      setTicker(tickerInput);
     }
   }
 
@@ -112,7 +122,7 @@ export default function MarketMojoDashboard() {
                 />
               </div>
               <Button onClick={handleViewTicker} disabled={isLoading || !tickerInput} className="px-6">
-                {isLoading && hasSearched ? <Loader2 className="animate-spin" /> : 'View'}
+                {isLoading ? <Loader2 className="animate-spin" /> : 'View'}
               </Button>
             </div>
         </div>
@@ -123,24 +133,36 @@ export default function MarketMojoDashboard() {
             <p className="text-muted-foreground mt-4">Loading data for {ticker}...</p>
           </div>
         ) : showDashboard ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-8">
-              <SentimentCharts newsData={newsData} />
-              <NewsFeed newsData={newsData.slice(0, 5)} />
+          <>
+            <Accordion type="single" collapsible className="w-full mb-8 max-w-3xl mx-auto">
+              <AccordionItem value="item-1">
+                <AccordionTrigger>View Fetched API Data</AccordionTrigger>
+                <AccordionContent>
+                  <pre className="p-4 bg-muted rounded-md text-xs overflow-x-auto">
+                    <code>{JSON.stringify(newsData, null, 2)}</code>
+                  </pre>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-8">
+                <SentimentCharts newsData={newsData} />
+                <NewsFeed newsData={newsData.slice(0, 5)} />
+              </div>
+              <div className="lg:col-span-1 space-y-8">
+                <StaticAnalysis ticker={ticker} />
+                <TopCompanies onCompanySelect={handleCompanySelect} />
+              </div>
             </div>
-            <div className="lg:col-span-1 space-y-8">
-              <StaticAnalysis ticker={ticker} />
-              <TopCompanies onCompanySelect={handleCompanySelect} />
-            </div>
-          </div>
+          </>
         ) : showNoResults ? (
-            <div className="text-center py-16 bg-card border border-dashed border-border/50 rounded-lg">
+            <div className="text-center py-16 bg-card border border-dashed border-border/50 rounded-lg max-w-3xl mx-auto">
                 <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-medium text-foreground">No Data Found</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                     No sentiment data found for <span className="font-semibold text-foreground">{ticker}</span>.
                 </p>
-                 <p className="text-sm text-muted-foreground">Try selecting one of the top companies below.</p>
+                 <p className="text-sm text-muted-foreground">This could be because the ticker is incorrect or there's no analysis data for it yet.</p>
                  <div className="mt-8">
                     <TopCompanies onCompanySelect={handleCompanySelect} />
                  </div>
