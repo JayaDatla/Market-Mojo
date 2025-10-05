@@ -20,8 +20,9 @@ import { Button } from '../ui/button';
 
 // Helper function to create the query
 const createNewsQuery = (firestore: Firestore, ticker: string) => {
-    if (!process.env.NEXT_PUBLIC_APP_ID || !ticker) return null;
-    const appId = process.env.NEXT_PUBLIC_APP_ID;
+    if (!ticker) return null;
+    // The app ID should be static for this app's public data structure.
+    const appId = "studio-app"; 
     const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
     return query(
       collection(firestore, collectionPath),
@@ -91,8 +92,8 @@ export default function MarketMojoDashboard() {
     setTickerInput(tickerToAnalyze);
     setTicker(tickerToAnalyze);
     setIsLoading(true);
-    toast({ title: 'Loading Data', description: `Fetching sentiment analysis for ${tickerToAnalyze}.` });
-  }, [toast]);
+    // No toast here to avoid being annoying on every click
+  }, []);
 
   const handleViewTicker = () => {
     if (tickerInput) {
@@ -163,6 +164,11 @@ export default function MarketMojoDashboard() {
                     <TopCompanies onCompanySelect={handleCompanySelect} />
                  </div>
             </div>
+        ) : hasSearched ? (
+           <div className="text-center py-16">
+            <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
+            <p className="text-muted-foreground mt-4">Searching for {ticker}...</p>
+          </div>
         ) : (
           <div className="text-center">
             <TopCompanies onCompanySelect={handleCompanySelect} />
