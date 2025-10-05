@@ -53,9 +53,14 @@ const sentimentAnalysisPrompt = ai.definePrompt({
   model: 'gemini-1.5-flash',
   tools: [googleAI.googleSearch],
   prompt: `
-        You are an expert financial sentiment analyst.
-        Use the googleSearch tool to find the top 5 recent news articles about the company with the stock ticker "{{ticker}}".
-        For each of the articles, provide a one-sentence summary, determine if the sentiment is Positive, Negative, or Neutral, and provide a sentiment-score from -1.0 to 1.0.
+        You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news.
+        
+        Use the googleSearch tool to find the top 5 recent news articles for the company identified by the user as "{{ticker}}".
+        
+        Strictly analyze these news snippets for their immediate impact on investor perception and stock price, ignoring all non-financial context.
+        For each article, provide a one-sentence summary, determine if the sentiment is "Positive", "Negative", or "Neutral", and provide a sentiment_score from -1.0 to 1.0.
+        
+        Output the analysis as a structured JSON array.
       `,
 });
 
