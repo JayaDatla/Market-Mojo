@@ -46,7 +46,7 @@ const sentimentAnalysisPrompt = ai.definePrompt({
   system: SYSTEM_INSTRUCTION,
   prompt: `Analyze the news for {{ticker}} and determine the sentiment.`,
   tools: [googleAI.googleSearch],
-  model: 'gemini-1.5-flash-latest',
+  model: 'gemini-pro',
 });
 
 const persistAndDisplaySentimentDataFlow = ai.defineFlow(
