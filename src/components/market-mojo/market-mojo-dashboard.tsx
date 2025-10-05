@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import type { NewsArticle } from '@/types';
 
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, BarChart } from 'lucide-react';
 
 import Header from './header';
 import SentimentCharts from './sentiment-charts';
@@ -39,6 +39,7 @@ export default function MarketMojoDashboard() {
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(false); // Not loading initially
   const [hasSearched, setHasSearched] = useState(false); // Track if a search has been performed
+  const [noResults, setNoResults] = useState(false); // Track if a search yielded no results
   const { toast } = useToast();
   const router = useRouter();
 
@@ -62,6 +63,7 @@ export default function MarketMojoDashboard() {
     };
 
     setIsLoading(true);
+    setNoResults(false);
     const unsubscribe = onSnapshot(newsQuery, (querySnapshot) => {
       const data: NewsArticle[] = [];
       querySnapshot.forEach((doc) => {
@@ -69,7 +71,7 @@ export default function MarketMojoDashboard() {
       });
       setNewsData(data);
       if(data.length === 0 && hasSearched) {
-        toast({ variant: 'destructive', title: 'No Data', description: `No sentiment data found for ${ticker}. Try one of the top companies.` });
+        setNoResults(true);
       }
       setIsLoading(false);
     }, (error) => {
@@ -85,6 +87,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     if (!tickerToAnalyze) return;
     setHasSearched(true);
+    setNoResults(false);
     setTickerInput(tickerToAnalyze);
     setTicker(tickerToAnalyze);
     setIsLoading(true);
@@ -148,6 +151,18 @@ export default function MarketMojoDashboard() {
               <TopCompanies onCompanySelect={handleCompanySelect} />
             </div>
           </div>
+        ) : noResults ? (
+            <div className="text-center py-16 bg-card border border-dashed border-border/50 rounded-lg">
+                <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-medium text-foreground">No Data Found</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    No sentiment data found for <span className="font-semibold text-foreground">{ticker}</span>.
+                </p>
+                 <p className="text-sm text-muted-foreground">Try selecting one of the top companies below.</p>
+                 <div className="mt-8">
+                    <TopCompanies onCompanySelect={handleCompanySelect} />
+                 </div>
+            </div>
         ) : (
           <div className="text-center">
             <TopCompanies onCompanySelect={handleCompanySelect} />
