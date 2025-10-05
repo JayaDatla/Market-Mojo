@@ -86,7 +86,7 @@ const persistAndDisplaySentimentDataFlow = ai.defineFlow(
           const docRef = db.collection(collectionPath).doc(); // Auto-generate ID
           batch.set(docRef, {
             ...result,
-            ticker: input.ticker,
+            ticker: input.ticker.toUpperCase(),
             timestamp: serverTimestamp(),
           });
         });
