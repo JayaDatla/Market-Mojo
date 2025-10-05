@@ -11,18 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import {firestore} from 'firebase-admin';
-import {initializeApp} from 'firebase-admin/app';
-import {getFirestore} from 'firebase-admin/firestore';
-
-// Initialize Firebase Admin SDK
-try {
-  initializeApp();
-} catch (error: any) {
-  // If the error is that the app already exists, that's fine.
-  if (error.code !== 'app/duplicate-app') {
-    console.error('Firebase initialization error!', error.stack);
-  }
-}
+import { db } from '@/lib/firebase/firebase-admin';
 
 const CheckRecentAnalysisInputSchema = z.object({
   ticker: z.string().describe('The stock ticker to check.'),
@@ -49,7 +38,6 @@ const checkRecentAnalysisFlow = ai.defineFlow(
   },
   async input => {
     const {ticker, appId} = input;
-    const db = getFirestore();
     const now = firestore.Timestamp.now();
     const twentyFourHoursAgo = new firestore.Timestamp(now.seconds - 24 * 60 * 60, now.nanoseconds);
 

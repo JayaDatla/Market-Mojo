@@ -15,11 +15,19 @@ let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 
-if (typeof window !== 'undefined') {
-    app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+function getFirebaseInstances() {
+  if (typeof window !== 'undefined') {
+    if (!getApps().length) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApp();
+    }
     auth = getAuth(app);
     db = getFirestore(app);
+  }
+  // @ts-ignore
+  return { app, auth, db };
 }
 
-// @ts-ignore
-export { app, auth, db };
+
+export { getFirebaseInstances };

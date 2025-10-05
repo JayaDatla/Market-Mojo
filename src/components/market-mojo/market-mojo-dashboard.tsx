@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
+import { signInAnonymously, onAuthStateChanged, User, Auth } from 'firebase/auth';
 import { collection, query, where, onSnapshot, orderBy, Firestore } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase/firebase';
+import { getFirebaseInstances } from '@/lib/firebase/firebase';
 import { fetchAndAnalyzeNews } from '@/app/actions';
 
 import type { NewsArticle } from '@/types';
@@ -28,15 +28,18 @@ export default function MarketMojoDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
+  const { auth, db } = getFirebaseInstances();
+
+
   useEffect(() => {
     if (auth) {
-      const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      const unsubscribe = onAuthStateChanged(auth as Auth, async (currentUser) => {
         if (currentUser) {
           setUser(currentUser);
           setUserId(currentUser.uid);
         } else {
           try {
-            const userCredential = await signInAnonymously(auth);
+            const userCredential = await signInAnonymously(auth as Auth);
             setUser(userCredential.user);
             setUserId(userCredential.user.uid);
           } catch (error) {
@@ -47,7 +50,7 @@ export default function MarketMojoDashboard() {
       });
       return () => unsubscribe();
     }
-  }, []);
+  }, [auth, toast]);
 
   useEffect(() => {
     if (!db || !ticker || !process.env.NEXT_PUBLIC_APP_ID) return;
