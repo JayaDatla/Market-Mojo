@@ -9,6 +9,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const NewsArticleSchema = z.object({
   newsTitle: z.string().describe('The title of the news article.'),
@@ -43,7 +44,7 @@ const sentimentAnalysisPrompt = ai.definePrompt({
   input: { schema: SentimentDataInputSchema },
   output: { schema: SentimentDataOutputSchema },
   system: SYSTEM_INSTRUCTION,
-  tools: [ai.googleSearchTool],
+  tools: [googleAI.googleSearchTool],
   prompt: `Analyze the news for {{ticker}} and determine the sentiment.`
 });
 
