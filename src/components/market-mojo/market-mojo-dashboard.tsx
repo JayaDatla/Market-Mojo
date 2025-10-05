@@ -8,13 +8,15 @@ import { useRouter } from 'next/navigation';
 import type { NewsArticle } from '@/types';
 
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 
 import Header from './header';
 import SentimentCharts from './sentiment-charts';
 import NewsFeed from './news-feed';
 import StaticAnalysis from './static-analysis';
 import TopCompanies from './top-companies';
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
 
 // Helper function to create the query
 const createNewsQuery = (firestore: Firestore, ticker: string) => {
@@ -33,6 +35,7 @@ export default function MarketMojoDashboard() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
   const [ticker, setTicker] = useState('AAPL'); // Default to a ticker
+  const [tickerInput, setTickerInput] = useState('AAPL');
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -65,6 +68,9 @@ export default function MarketMojoDashboard() {
         data.push({ id: doc.id, ...doc.data() } as NewsArticle);
       });
       setNewsData(data);
+      if(data.length === 0) {
+        toast({ variant: 'destructive', title: 'No Data', description: `No sentiment data found for ${ticker}. Try one of the top companies.` });
+      }
       setIsLoading(false);
     }, (error) => {
       console.error("Firestore snapshot error", error);
@@ -73,14 +79,20 @@ export default function MarketMojoDashboard() {
     });
 
     return () => unsubscribe();
-  }, [newsQuery, toast]);
+  }, [newsQuery, toast, ticker]);
   
 
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
-    setIsLoading(true);
+    setTickerInput(tickerToAnalyze);
     setTicker(tickerToAnalyze);
     toast({ title: 'Loading Data', description: `Fetching sentiment analysis for ${tickerToAnalyze}.` });
   }, [toast]);
+
+  const handleViewTicker = () => {
+    if (tickerInput) {
+      handleCompanySelect(tickerInput);
+    }
+  }
 
   if (isUserLoading || !user) {
     return (
@@ -96,9 +108,25 @@ export default function MarketMojoDashboard() {
     <div className="flex flex-col min-h-screen">
       <Header />
       <div className="container mx-auto px-4 py-8 flex-grow">
-        <div className="max-w-3xl mx-auto mb-12">
-            <h2 className="text-4xl md:text-5xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-400 mb-4 tracking-tighter animate-gradient-x">Market Sentiment Analyzer</h2>
-            <p className="text-lg text-muted-foreground text-center">Select a company below to see its real-time news sentiment analysis.</p>
+        <div className="max-w-3xl mx-auto mb-12 text-center">
+            <h2 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-400 mb-4 tracking-tighter animate-gradient-x">Market Sentiment Analyzer</h2>
+            <p className="text-lg text-muted-foreground">Enter a ticker or select a company below to see its real-time news sentiment analysis.</p>
+            <div className="mt-6 max-w-xl mx-auto flex items-center gap-2">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Enter a stock ticker (e.g., TSLA)"
+                  value={tickerInput}
+                  onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => e.key === 'Enter' && handleViewTicker()}
+                  className="bg-background/50 border-border/50 text-base pl-10"
+                />
+              </div>
+              <Button onClick={handleViewTicker} disabled={isLoading} className="px-6">
+                {isLoading ? <Loader2 className="animate-spin" /> : 'View'}
+              </Button>
+            </div>
         </div>
         
         {isLoading ? (
@@ -118,7 +146,9 @@ export default function MarketMojoDashboard() {
             </div>
           </div>
         ) : (
-          <TopCompanies onCompanySelect={handleCompanySelect} />
+          <div className="text-center">
+            <TopCompanies onCompanySelect={handleCompanySelect} />
+          </div>
         )}
       </div>
     </div>
