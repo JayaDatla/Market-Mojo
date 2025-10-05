@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -17,6 +18,46 @@ const industryData: { [key: string]: { industry: string; analysis: string; compe
     industry: 'Consumer Electronics & Software',
     analysis: 'Apple maintains a powerful ecosystem with high brand loyalty. Key drivers include iPhone sales, services growth (App Store, iCloud), and expansion into new product categories like augmented reality.',
     competitors: ['Microsoft (MSFT)', 'Google (GOOGL)', 'Samsung (SSNLF)'],
+  },
+  'MSFT': {
+    industry: 'Software & Cloud Computing',
+    analysis: 'Microsoft is a diversified technology giant with strongholds in enterprise software, cloud computing (Azure), and gaming (Xbox). Its growth is driven by digital transformation trends and AI integration.',
+    competitors: ['Amazon (AMZN)', 'Google (GOOGL)', 'Oracle (ORCL)'],
+  },
+  'GOOGL': {
+    industry: 'Internet & Advertising',
+    analysis: 'Alphabet, Google\'s parent company, dominates online search and advertising. It is also a major player in cloud computing, autonomous driving (Waymo), and artificial intelligence.',
+    competitors: ['Meta (META)', 'Amazon (AMZN)', 'Microsoft (MSFT)'],
+  },
+  'AMZN': {
+    industry: 'E-commerce & Cloud Computing',
+    analysis: 'Amazon leads in e-commerce and cloud infrastructure (AWS). Its stock is influenced by consumer spending, digital advertising growth, and the continued expansion of its logistics and services network.',
+    competitors: ['Walmart (WMT)', 'Microsoft (MSFT)', 'Alibaba (BABA)'],
+  },
+  'NVDA': {
+    industry: 'Semiconductors & AI',
+    analysis: 'NVIDIA is the leader in GPUs, which are critical for AI and machine learning. Its performance is heavily tied to the demand for data center acceleration, gaming, and professional visualization.',
+    competitors: ['AMD (AMD)', 'Intel (INTC)', 'Qualcomm (QCOM)'],
+  },
+  'META': {
+    industry: 'Social Media & Advertising',
+    analysis: 'Meta Platforms operates the world\'s largest social networks (Facebook, Instagram, WhatsApp). Its growth is dependent on user engagement, digital advertising revenue, and its long-term bet on the metaverse.',
+    competitors: ['Google (GOOGL)', 'TikTok', 'Snap (SNAP)'],
+  },
+  'LLY': {
+    industry: 'Pharmaceuticals',
+    analysis: 'Eli Lilly is a global pharmaceutical company with a strong pipeline in diabetes, oncology, and immunology. Its stock performance is driven by drug trial results, new product approvals, and patent expirations.',
+    competitors: ['Novo Nordisk (NVO)', 'Pfizer (PFE)', 'Merck (MRK)'],
+  },
+  'AVGO': {
+    industry: 'Semiconductors & Infrastructure Software',
+    analysis: 'Broadcom is a diversified semiconductor and software company. Its products are used in data centers, networking, smartphones, and industrial applications. Growth is tied to enterprise IT spending and 5G adoption.',
+    competitors: ['Qualcomm (QCOM)', 'Marvell (MRVL)', 'VMware (VMW)'],
+  },
+  'JPM': {
+    industry: 'Financial Services',
+    analysis: 'JPMorgan Chase is the largest bank in the United States. Its performance is linked to interest rates, economic growth, and the health of global financial markets. It operates across investment banking, consumer banking, and asset management.',
+    competitors: ['Bank of America (BAC)', 'Goldman Sachs (GS)', 'Morgan Stanley (MS)'],
   },
   'VW': {
     industry: 'Automotive',

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { signInAnonymously, User } from 'firebase/auth';
+import { User } from 'firebase/auth';
 import { collection, query, where, onSnapshot, orderBy, Firestore } from 'firebase/firestore';
 import { useFirebase, useUser, useMemoFirebase } from '@/firebase';
 import { fetchAndAnalyzeNews } from '@/app/actions';
@@ -19,10 +19,11 @@ import Header from './header';
 import SentimentCharts from './sentiment-charts';
 import NewsFeed from './news-feed';
 import StaticAnalysis from './static-analysis';
+import TopCompanies from './top-companies';
 
 // Helper function to create the query
 const createNewsQuery = (firestore: Firestore, ticker: string) => {
-    if (!process.env.NEXT_PUBLIC_APP_ID) return null;
+    if (!process.env.NEXT_PUBLIC_APP_ID || !ticker) return null;
     const appId = process.env.NEXT_PUBLIC_APP_ID;
     const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
     return query(
@@ -36,8 +37,8 @@ const createNewsQuery = (firestore: Firestore, ticker: string) => {
 export default function MarketMojoDashboard() {
   const { user, isUserLoading } = useUser();
   const { auth, firestore } = useFirebase();
-  const [ticker, setTicker] = useState('TSLA');
-  const [inputValue, setInputValue] = useState('TSLA');
+  const [ticker, setTicker] = useState('');
+  const [inputValue, setInputValue] = useState('');
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -70,16 +71,14 @@ export default function MarketMojoDashboard() {
       setNewsData(data);
     }, (error) => {
       console.error("Firestore snapshot error", error);
-      // The useCollection hook will now handle emitting the detailed error.
-      // We can still show a generic toast here if we want.
       toast({ variant: 'destructive', title: 'Data Error', description: 'Could not load real-time data.' });
     });
 
     return () => unsubscribe();
   }, [newsQuery, toast]);
 
-  const handleFetchAndAnalyze = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleFetchAndAnalyze = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!inputValue) {
       toast({ variant: 'destructive', title: 'Input Error', description: 'Please enter a stock ticker.' });
       return;
@@ -97,11 +96,29 @@ export default function MarketMojoDashboard() {
       toast({ title: 'Analysis Status', description: result.message });
     }
     
-    // Loading state is for the API call; Firestore listener will handle data arrival.
-    // A small delay to allow message to be read before loader disappears
     setTimeout(() => setIsLoading(false), 2000);
   };
   
+  const handleCompanySelect = (selectedTicker: string) => {
+    setInputValue(selectedTicker);
+    // We need to use a function to ensure the latest state is used for the async call
+    // because React state updates can be asynchronous.
+    // A simple way is to use a useEffect that triggers when inputValue changes and is not empty.
+    // Or call it directly after setting state, but the `inputValue` may not be updated yet.
+    // Let's trigger it more directly.
+    setTicker(selectedTicker); // Trigger Firestore listener
+    setIsLoading(true);
+    fetchAndAnalyzeNews(selectedTicker).then(result => {
+        if (result.error) {
+            toast({ variant: 'destructive', title: 'Analysis Error', description: result.error });
+        }
+        if (result.message) {
+            toast({ title: 'Analysis Status', description: result.message });
+        }
+        setTimeout(() => setIsLoading(false), 2000);
+    });
+  }
+
   const showDashboard = useMemo(() => newsData.length > 0, [newsData]);
 
   if (isUserLoading || !user) {
@@ -118,7 +135,7 @@ export default function MarketMojoDashboard() {
       <div className="container mx-auto px-4 py-8 flex-grow">
         <div className="max-w-3xl mx-auto mb-12">
             <h2 className="text-4xl md:text-5xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-400 mb-4 tracking-tighter animate-gradient-x">Market Sentiment Analyzer</h2>
-            <p className="text-lg text-muted-foreground text-center">Enter a stock ticker to get real-time news sentiment analysis powered by AI.</p>
+            <p className="text-lg text-muted-foreground text-center">Enter a stock ticker or select a company below to get real-time news sentiment analysis powered by AI.</p>
         </div>
         <div className="max-w-2xl mx-auto mb-12">
             <form onSubmit={handleFetchAndAnalyze} className="flex items-center gap-2 bg-card border border-border/50 p-1.5 rounded-full shadow-lg">
@@ -140,7 +157,7 @@ export default function MarketMojoDashboard() {
         {(isLoading && newsData.length === 0) ? (
           <div className="text-center py-16">
             <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
-            <p className="text-muted-foreground mt-4">Analyzing sentiment...</p>
+            <p className="text-muted-foreground mt-4">Analyzing sentiment for {ticker}...</p>
           </div>
         ) : showDashboard ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -153,9 +170,7 @@ export default function MarketMojoDashboard() {
             </div>
           </div>
         ) : (
-          <div className="text-center py-16 border border-dashed border-border/50 rounded-lg">
-            <p className="text-muted-foreground text-lg">Enter a stock ticker to begin sentiment analysis.</p>
-          </div>
+          <TopCompanies onCompanySelect={handleCompanySelect} />
         )}
       </div>
     </div>
