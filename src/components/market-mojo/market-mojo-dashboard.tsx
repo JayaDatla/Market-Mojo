@@ -10,9 +10,8 @@ import type { NewsArticle } from '@/types';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, TrendingUp } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 
 import Header from './header';
 import SentimentCharts from './sentiment-charts';
@@ -108,23 +107,25 @@ export default function MarketMojoDashboard() {
     <div className="flex flex-col min-h-screen">
       <Header userId={user?.uid ?? null} />
       <div className="container mx-auto px-4 py-8 flex-grow">
-        <Card className="bg-card/80 backdrop-blur-sm border-border/50 mb-8">
-          <CardContent className="p-6">
-            <form onSubmit={handleFetchAndAnalyze} className="flex flex-col sm:flex-row items-center gap-4">
+        <div className="max-w-2xl mx-auto mb-12">
+            <h2 className="text-4xl md:text-5xl font-bold text-center text-foreground mb-4">Market Sentiment Analyzer</h2>
+            <p className="text-lg text-muted-foreground text-center">Enter a stock ticker to get real-time news sentiment analysis.</p>
+        </div>
+        <div className="max-w-2xl mx-auto mb-12">
+            <form onSubmit={handleFetchAndAnalyze} className="flex items-center gap-2 bg-background/10 border p-1 rounded-full">
               <Input
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Enter Global Ticker (e.g., VW, SHELL, TSLA)"
-                className="flex-grow text-lg h-12"
+                placeholder="Enter a stock ticker (e.g. TSLA, AAPL)"
+                className="flex-grow text-base h-12 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 aria-label="Stock Ticker Input"
               />
-              <Button type="submit" disabled={isLoading || isUserLoading} className="w-full sm:w-auto h-12 px-8 text-lg">
-                {isLoading || isUserLoading ? <Loader2 className="animate-spin" /> : <><TrendingUp className="mr-2 h-5 w-5" />Analyze</>}
+              <Button type="submit" disabled={isLoading || isUserLoading} className="h-10 w-10 rounded-full" size="icon">
+                {isLoading || isUserLoading ? <Loader2 className="animate-spin" /> : <Search />}
               </Button>
             </form>
-          </CardContent>
-        </Card>
+        </div>
         
         {showDashboard ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
