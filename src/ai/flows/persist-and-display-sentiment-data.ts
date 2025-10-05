@@ -9,9 +9,9 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
 import { serverTimestamp } from 'firebase-admin/firestore';
 import { db } from '@/lib/firebase/firebase-admin';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const NewsArticleSchema = z.object({
   newsTitle: z.string().describe('The title of the news article.'),
@@ -27,7 +27,7 @@ const SentimentDataInputSchema = z.object({
 export type SentimentDataInput = z.infer<typeof SentimentDataInputSchema>;
 
 const SentimentDataOutputSchema = z.object({
-  results: z.array(NewsArticleSchema).describe('An array of news analysis objects.'),
+  results: z.array(NewsArticleSchema).length(5).describe('An array of 5 news analysis objects.'),
 });
 export type SentimentDataOutput = z.infer<typeof SentimentDataOutputSchema>;
 
@@ -35,34 +35,19 @@ export async function persistAndDisplaySentimentData(input: SentimentDataInput):
   return persistAndDisplaySentimentDataFlow(input);
 }
 
-const SYSTEM_INSTRUCTION = `You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies. Strictly analyze the provided news snippets (found via Google Search) for their immediate impact on investor perception and stock price, ignoring all non-financial context. The user is providing a company identifier, which may be a ticker (e.g., AAPL) or a common name (e.g., SHELL). Output the analysis as a structured JSON array, ensuring the 'summary' is a single, concise sentence.`
+const SYSTEM_INSTRUCTION = `You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies. 
+You MUST use the provided Google Search tool to find 5 recent news articles for the given ticker.
+Strictly analyze the news for its immediate impact on investor perception and stock price, ignoring all non-financial context. 
+The user is providing a company identifier, which may be a ticker (e.g., AAPL) or a common name (e.g., SHELL). 
+Output the analysis as a structured JSON array, ensuring the 'summary' is a single, concise sentence.`;
 
 const sentimentAnalysisPrompt = ai.definePrompt({
   name: 'sentimentAnalysisPrompt',
-  input: {schema: SentimentDataInputSchema},
-  output: {schema: SentimentDataOutputSchema},
-  prompt: 
-  `{{#tool_use}}
-  Analyze the news snippets for {{ticker}} and determine the sentiment.
-  {{~/tool_use}}
-  `,
+  input: { schema: SentimentDataInputSchema },
+  output: { schema: SentimentDataOutputSchema },
   system: SYSTEM_INSTRUCTION,
-  tools: [{
-    name: 'googleSearch',
-    description: 'The user is asking for the latest news for the given company, so you MUST use this tool to find the latest news.',
-    inputSchema: z.object({
-        ticker: z.string().describe('the company ticker to use when searching google.'),
-    }),
-    outputSchema: z.string(),
-    async call(input) {
-        const news = await ai.generate({
-            model: googleAI.model('gemini-1.5-flash-latest'),
-            prompt: `find 5 of the latest news snippets for ${input.ticker}`,
-        });
-
-        return news.text ?? '';
-    }
-  }]
+  tools: [googleAI.googleSearchTool()],
+  prompt: `Analyze the news for {{ticker}} and determine the sentiment.`
 });
 
 const persistAndDisplaySentimentDataFlow = ai.defineFlow(
@@ -73,44 +58,29 @@ const persistAndDisplaySentimentDataFlow = ai.defineFlow(
   },
   async input => {
     try {
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const existingData = await db
-            .collectionGroup("financial_news_sentiment")
-            .where("ticker", "==", input.ticker)
-            .where("timestamp", ">=", twentyFourHoursAgo)
-            .limit(1)
-            .get();
+      const { output } = await sentimentAnalysisPrompt(input);
 
-        if (!existingData.empty) {
-            const results = existingData.docs.map((doc) => doc.data()) as any[];
-            console.log("Existing data found, skipping API call");
-            return { results };
-        }
+      if (output && output.results) {
+        const appId = process.env.NEXT_PUBLIC_APP_ID || '__app_id';
+        const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
 
-        const { output } = await sentimentAnalysisPrompt(input);
+        // Save the sentiment analysis results to Firestore
+        const batch = db.batch();
+        output.results.forEach((result) => {
+          const docRef = db.collection(collectionPath).doc(); // Auto-generate ID
+          batch.set(docRef, {
+            ...result,
+            ticker: input.ticker,
+            timestamp: serverTimestamp(),
+          });
+        });
+        await batch.commit();
 
-        if (output && output.results) {
-          const appId = process.env.NEXT_PUBLIC_APP_ID || '__app_id';
-          const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
-
-          // Save the sentiment analysis results to Firestore
-          await Promise.all(
-            output.results.map(async (result) => {
-              await db
-                .collection(collectionPath)
-                .add({
-                  ...result,
-                  ticker: input.ticker,
-                  timestamp: serverTimestamp(),
-                });
-            })
-          );
-
-          return output;
-        } else {
-          console.error("No output from sentimentAnalysisPrompt");
-          return { results: [] }; // Return an empty array if there's no output.
-        }
+        return output;
+      } else {
+        console.error("No output from sentimentAnalysisPrompt");
+        return { results: [] }; // Return an empty array if there's no output.
+      }
     } catch (error: any) {
       console.error("Error in persistAndDisplaySentimentDataFlow:", error);
       throw new Error("Failed to analyze and store sentiment data: " + error.message);
