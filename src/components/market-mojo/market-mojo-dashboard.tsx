@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { signInAnonymously, onAuthStateChanged, User, Auth } from 'firebase/auth';
-import { collection, query, where, onSnapshot, orderBy, Firestore } from 'firebase/firestore';
-import { getFirebaseInstances } from '@/lib/firebase/firebase';
+import { signInAnonymously, User } from 'firebase/auth';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { useFirebase, useUser, useMemoFirebase } from '@/firebase';
 import { fetchAndAnalyzeNews } from '@/app/actions';
 
 import type { NewsArticle } from '@/types';
@@ -20,51 +20,40 @@ import NewsFeed from './news-feed';
 import StaticAnalysis from './static-analysis';
 
 export default function MarketMojoDashboard() {
-  const [user, setUser] = useState<User | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user, isUserLoading } = useUser();
+  const { auth, firestore } = useFirebase();
   const [ticker, setTicker] = useState('TSLA');
   const [inputValue, setInputValue] = useState('TSLA');
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const { auth, db } = getFirebaseInstances();
-
-
   useEffect(() => {
-    if (auth) {
-      const unsubscribe = onAuthStateChanged(auth as Auth, async (currentUser) => {
-        if (currentUser) {
-          setUser(currentUser);
-          setUserId(currentUser.uid);
-        } else {
-          try {
-            const userCredential = await signInAnonymously(auth as Auth);
-            setUser(userCredential.user);
-            setUserId(userCredential.user.uid);
-          } catch (error) {
-            console.error("Anonymous sign-in error", error);
-            toast({ variant: 'destructive', title: 'Authentication Error', description: 'Could not sign in anonymously.' });
-          }
-        }
+    if (!isUserLoading && !user && auth) {
+      signInAnonymously(auth).catch((error) => {
+        console.error("Anonymous sign-in error", error);
+        toast({ variant: 'destructive', title: 'Authentication Error', description: 'Could not sign in anonymously.' });
       });
-      return () => unsubscribe();
     }
-  }, [auth, toast]);
+  }, [isUserLoading, user, auth, toast]);
 
-  useEffect(() => {
-    if (!db || !ticker || !process.env.NEXT_PUBLIC_APP_ID) return;
+  const newsQuery = useMemoFirebase(() => {
+    if (!firestore || !ticker || !process.env.NEXT_PUBLIC_APP_ID) return null;
 
     const appId = process.env.NEXT_PUBLIC_APP_ID;
     const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
     
-    const q = query(
-      collection(db as Firestore, collectionPath),
+    return query(
+      collection(firestore, collectionPath),
       where('ticker', '==', ticker.toUpperCase()),
       orderBy('timestamp', 'desc')
     );
+  }, [firestore, ticker]);
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+  useEffect(() => {
+    if (!newsQuery) return;
+
+    const unsubscribe = onSnapshot(newsQuery, (querySnapshot) => {
       const data: NewsArticle[] = [];
       querySnapshot.forEach((doc) => {
         data.push({ id: doc.id, ...doc.data() } as NewsArticle);
@@ -76,7 +65,7 @@ export default function MarketMojoDashboard() {
     });
 
     return () => unsubscribe();
-  }, [db, ticker, toast]);
+  }, [newsQuery, toast]);
 
   const handleFetchAndAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +95,7 @@ export default function MarketMojoDashboard() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header userId={userId} />
+      <Header userId={user?.uid ?? null} />
       <div className="container mx-auto px-4 py-8 flex-grow">
         <Card className="bg-card/80 backdrop-blur-sm border-border/50 mb-8">
           <CardContent className="p-6">
@@ -119,8 +108,8 @@ export default function MarketMojoDashboard() {
                 className="flex-grow text-lg h-12"
                 aria-label="Stock Ticker Input"
               />
-              <Button type="submit" disabled={isLoading} className="w-full sm:w-auto h-12 px-8 text-lg">
-                {isLoading ? <Loader2 className="animate-spin" /> : <><TrendingUp className="mr-2 h-5 w-5" />Analyze</>}
+              <Button type="submit" disabled={isLoading || isUserLoading} className="w-full sm:w-auto h-12 px-8 text-lg">
+                {isLoading || isUserLoading ? <Loader2 className="animate-spin" /> : <><TrendingUp className="mr-2 h-5 w-5" />Analyze</>}
               </Button>
             </form>
           </CardContent>
@@ -138,7 +127,11 @@ export default function MarketMojoDashboard() {
           </div>
         ) : (
           <div className="text-center py-16">
-            <p className="text-muted-foreground text-lg">Enter a stock ticker to begin sentiment analysis.</p>
+            {isUserLoading ? (
+              <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
+            ) : (
+              <p className="text-muted-foreground text-lg">Enter a stock ticker to begin sentiment analysis.</p>
+            )}
           </div>
         )}
       </div>
