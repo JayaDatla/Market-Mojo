@@ -10,12 +10,11 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import {firestore} from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '@/lib/firebase/firebase-admin';
 
 const CheckRecentAnalysisInputSchema = z.object({
   ticker: z.string().describe('The stock ticker to check.'),
-  appId: z.string().describe('The application ID.'),
 });
 export type CheckRecentAnalysisInput = z.infer<typeof CheckRecentAnalysisInputSchema>;
 
@@ -37,16 +36,13 @@ const checkRecentAnalysisFlow = ai.defineFlow(
     outputSchema: CheckRecentAnalysisOutputSchema,
   },
   async input => {
-    const {ticker, appId} = input;
-    const now = firestore.Timestamp.now();
-    const twentyFourHoursAgo = new firestore.Timestamp(now.seconds - 24 * 60 * 60, now.nanoseconds);
-
-    const collectionPath = `/artifacts/${appId}/public/data/financial_news_sentiment`;
+    const {ticker} = input;
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     const snapshot = await db
-      .collection(collectionPath)
+      .collectionGroup('financial_news_sentiment')
       .where('ticker', '==', ticker)
-      .where('serverTimestamp', '>=', twentyFourHoursAgo)
+      .where('timestamp', '>=', twentyFourHoursAgo)
       .limit(1)
       .get();
 

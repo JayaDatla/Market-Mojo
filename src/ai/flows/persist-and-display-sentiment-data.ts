@@ -10,7 +10,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
-import { FieldValue, serverTimestamp } from 'firebase-admin/firestore';
+import { serverTimestamp } from 'firebase-admin/firestore';
 import { db } from '@/lib/firebase/firebase-admin';
 
 const NewsArticleSchema = z.object({
@@ -56,7 +56,7 @@ const sentimentAnalysisPrompt = ai.definePrompt({
     outputSchema: z.string(),
     async call(input) {
         const news = await ai.generate({
-            model: googleAI.model('gemini-2.5-flash-preview-05-20'),
+            model: googleAI.model('gemini-1.5-flash-latest'),
             prompt: `find 5 of the latest news snippets for ${input.ticker}`,
         });
 
@@ -73,15 +73,12 @@ const persistAndDisplaySentimentDataFlow = ai.defineFlow(
   },
   async input => {
     try {
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const existingData = await db
-            .collection("artifacts")
-            .doc("__app_id")
-            .collection("public")
-            .doc("data")
-            .collection("financial_news_sentiment")
+            .collectionGroup("financial_news_sentiment")
             .where("ticker", "==", input.ticker)
-            .where("timestamp", ">=", FieldValue.serverTimestamp())
-            .limit(5)
+            .where("timestamp", ">=", twentyFourHoursAgo)
+            .limit(1)
             .get();
 
         if (!existingData.empty) {
@@ -93,15 +90,14 @@ const persistAndDisplaySentimentDataFlow = ai.defineFlow(
         const { output } = await sentimentAnalysisPrompt(input);
 
         if (output && output.results) {
+          const appId = process.env.NEXT_PUBLIC_APP_ID || '__app_id';
+          const collectionPath = `artifacts/${appId}/public/data/financial_news_sentiment`;
+
           // Save the sentiment analysis results to Firestore
           await Promise.all(
             output.results.map(async (result) => {
               await db
-                .collection("artifacts")
-                .doc("__app_id")
-                .collection("public")
-                .doc("data")
-                .collection("financial_news_sentiment")
+                .collection(collectionPath)
                 .add({
                   ...result,
                   ticker: input.ticker,
