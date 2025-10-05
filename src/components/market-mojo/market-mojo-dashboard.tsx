@@ -9,7 +9,7 @@ import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
 import SentimentCharts from './sentiment-charts';
 import NewsFeed from './news-feed';
-import StaticAnalysis, { industryData } from './static-analysis';
+import StaticAnalysis, { industryData, companyNameToTicker } from './static-analysis';
 import TopCompanies from './top-companies';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -62,20 +62,20 @@ export default function MarketMojoDashboard() {
       
       const processResult = (analysisResult: TickerAnalysisOutput) => {
         if (!analysisResult.analysis || analysisResult.analysis.length === 0) return [];
+        const resolvedTicker = companyNameToTicker[tickerToAnalyze.toUpperCase()] || tickerToAnalyze;
         return analysisResult.analysis.map((item, index) => ({
-          id: `${tickerToAnalyze}-${index}-${Date.now()}`,
+          id: `${resolvedTicker}-${index}-${Date.now()}`,
           newsTitle: item.title,
           summary: item.summary,
           sentimentScore: item.sentiment_score,
           sentimentLabel: item.sentiment,
           sourceUri: item.url,
           timestamp: { toDate: () => new Date() } as any,
-          ticker: tickerToAnalyze,
+          ticker: resolvedTicker,
         }));
       };
 
       if (result && !result.error && result.analysis && result.analysis.length > 0) {
-        // API call was successful
         const articles = processResult(result);
         setNewsData(articles);
         setAnalysisCache(prevCache => ({
@@ -83,7 +83,6 @@ export default function MarketMojoDashboard() {
           [tickerToAnalyze]: { analysis: result?.analysis, rawResponse: result?.rawResponse },
         }));
       } else {
-        // API call failed or returned no data, check cache
         const cachedData = analysisCache[tickerToAnalyze];
         if (cachedData && cachedData.analysis) {
           const articles = processResult(cachedData);
@@ -94,8 +93,7 @@ export default function MarketMojoDashboard() {
             description: `Showing previously cached data for ${tickerToAnalyze}.`,
           });
         } else {
-          // No cached data either
-          setRawApiData(result); // Show error response if available
+          setRawApiData(result);
           setNoResults(true);
           toast({
             variant: 'destructive',
@@ -118,10 +116,12 @@ export default function MarketMojoDashboard() {
     }
   };
 
+  const resolvedTicker = (companyNameToTicker[ticker.toUpperCase()] || ticker.toUpperCase());
+  const currentPriceData = industryData[resolvedTicker]?.priceData;
+  
   const isLoading = isAnalyzing;
   const showDashboard = newsData.length > 0 && hasSearched;
   const showNoResults = noResults && hasSearched && !isLoading;
-  const currentPriceData = industryData[ticker.toUpperCase()]?.priceData;
 
   return (
     <div className="flex flex-col min-h-screen">
