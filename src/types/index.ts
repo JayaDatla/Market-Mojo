@@ -1,4 +1,3 @@
-
 import type { Timestamp } from "firebase/firestore";
 
 export type NewsArticle = {
@@ -12,6 +11,7 @@ export type NewsArticle = {
   ticker: string;
 };
 
+// This type now matches the structure of the JSON expected from Perplexity
 export type ArticleAnalysis = {
   title: string;
   url: string;
@@ -20,7 +20,7 @@ export type ArticleAnalysis = {
   sentiment_score: number;
 };
 
-// This type represents the direct output from the Perplexity API call
+// This type represents the direct output from the API call
 export type TickerAnalysisOutput = {
   analysis?: ArticleAnalysis[];
   error?: string;

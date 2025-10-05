@@ -80,7 +80,7 @@ export default function MarketMojoDashboard() {
         setNewsData(articles);
         setAnalysisCache(prevCache => ({
           ...prevCache,
-          [tickerToAnalyze]: { analysis: result?.analysis, rawResponse: result },
+          [tickerToAnalyze]: { analysis: result?.analysis, rawResponse: result?.rawResponse },
         }));
       } else {
         // API call failed or returned no data, check cache
@@ -110,7 +110,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, [handleAnalysis]);
+  }, []);
 
   const handleViewTicker = () => {
     if (tickerInput) {
