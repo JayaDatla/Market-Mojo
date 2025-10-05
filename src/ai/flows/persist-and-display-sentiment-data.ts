@@ -77,9 +77,7 @@ const persistAndDisplaySentimentDataFlow = ai.defineFlow(
           return { results: [] };
       }
 
-      // Temporarily disabled to prevent API calls until the build error is fixed.
-      // const { output } = await sentimentAnalysisPrompt(input);
-      const output = null;
+      const { output } = await sentimentAnalysisPrompt(input);
 
 
       if (output && output.results) {
