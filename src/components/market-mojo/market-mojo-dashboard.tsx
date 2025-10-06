@@ -17,6 +17,7 @@ import InvestmentSuggestion from './investment-suggestion';
 import SentimentPieChart from './sentiment-pie-chart';
 import HistoricalPriceChart from './historical-price-chart';
 import MojoSynthesis from './mojo-synthesis';
+import { Skeleton } from '../ui/skeleton';
 
 // Helper function to calculate a Simple Moving Average (SMA)
 const calculateMovingAverage = (data: PriceData[], windowSize: number): number[] => {
