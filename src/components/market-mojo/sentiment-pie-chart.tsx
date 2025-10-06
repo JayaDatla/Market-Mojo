@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -18,32 +17,21 @@ const sentimentConfig = {
 };
 
 const renderActiveShape = (props: any) => {
-    const RADIAN = Math.PI / 180;
     const {
       cx,
       cy,
-      midAngle,
       innerRadius,
       outerRadius,
       startAngle,
       endAngle,
       fill,
-      payload,
-      percent,
-      liftY = 0 
+      liftY = 0
     } = props;
 
-    const sin = Math.sin(-RADIAN * midAngle);
-    const cos = Math.cos(-RADIAN * midAngle);
-    const textAnchor = cos >= 0 ? "start" : "end";
-
-    // Position the label text box
-    const textX = cx + (outerRadius + 15) * cos;
-    const textY = cy + (outerRadius + 15) * sin;
 
     return (
       <g>
-        {/* Glow filter definition */}
+        {/* Glow filter */}
         <defs>
             <filter id="hover-glow" x="-50%" y="-50%" width="200%" height="200%">
               <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor={fill} floodOpacity="0.7" />
@@ -55,7 +43,7 @@ const renderActiveShape = (props: any) => {
           cx={cx}
           cy={cy + liftY}
           innerRadius={innerRadius}
-          outerRadius={outerRadius + 4}
+          outerRadius={outerRadius + 6} // Make it pop a bit more
           startAngle={startAngle}
           endAngle={endAngle}
           fill={fill}
@@ -74,27 +62,6 @@ const renderActiveShape = (props: any) => {
           fill={fill}
           opacity={0.3}
         />
-
-        {/* Label Text */}
-        <text
-          x={textX}
-          y={textY}
-          textAnchor={textAnchor}
-          fill="hsl(var(--foreground))"
-          fontWeight={600}
-          fontSize={14}
-        >
-          {payload.name}
-        </text>
-        <text
-          x={textX}
-          y={textY + 20}
-          textAnchor={textAnchor}
-          fill="hsl(var(--muted-foreground))"
-          fontSize={13}
-        >
-          {`(${(percent * 100).toFixed(0)}%)`}
-        </text>
       </g>
     );
   };
@@ -133,6 +100,10 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
   if (newsData.length === 0) {
     return null;
   }
+  
+  const activeData = activeIndex !== null ? chartData[activeIndex] : null;
+  const totalValue = useMemo(() => chartData.reduce((sum, entry) => sum + entry.value, 0), [chartData]);
+
 
   return (
     <Card className="bg-card border-border/50 overflow-hidden">
@@ -144,7 +115,7 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
         <CardDescription>Breakdown of news article sentiment.</CardDescription>
       </CardHeader>
       <CardContent>
-          <div className="flex items-center justify-center rounded-2xl p-0">
+          <div className="relative flex items-center justify-center rounded-2xl p-0">
             <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
                 <Pie
@@ -152,8 +123,8 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
                     dataKey="value"
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
+                    innerRadius={70}
+                    outerRadius={100}
                     paddingAngle={3}
                     activeIndex={activeIndex ?? undefined}
                     activeShape={(props) => renderActiveShape({ ...props, liftY: activeIndex === props.index ? liftAmount : 0 })}
@@ -163,11 +134,29 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
                     animationDuration={600}
                 >
                     {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                      <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                     ))}
                 </Pie>
                 </PieChart>
             </ResponsiveContainer>
+             {/* Center Label */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                {activeData ? (
+                    <>
+                        <span className="text-2xl font-bold text-foreground transition-opacity duration-300">
+                           {((activeData.value / totalValue) * 100).toFixed(0)}%
+                        </span>
+                        <span className="text-sm text-muted-foreground transition-opacity duration-300" style={{color: activeData.color}}>
+                            {activeData.name}
+                        </span>
+                    </>
+                ) : (
+                    <>
+                        <span className="text-2xl font-bold text-foreground">{totalValue}</span>
+                        <span className="text-sm text-muted-foreground">Total Articles</span>
+                    </>
+                )}
+            </div>
         </div>
       </CardContent>
     </Card>
