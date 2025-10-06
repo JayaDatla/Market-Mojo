@@ -4,13 +4,12 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { NewsArticle, PriceData } from '@/types';
-import { TrendingUp, TrendingDown, Minus, ChevronsUp, ChevronUp, ChevronsDown, ChevronDown, Award } from 'lucide-react';
+import type { NewsArticle } from '@/types';
+import { ChevronsUp, ChevronUp, ChevronsDown, ChevronDown, Minus, Award } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface InvestmentSuggestionProps {
   newsData: NewsArticle[];
-  priceData?: PriceData[];
 }
 
 type SuggestionLevel = 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
@@ -28,22 +27,15 @@ const suggestionStyles: Record<SuggestionLevel, {
 };
 
 
-export default function InvestmentSuggestion({ newsData, priceData }: InvestmentSuggestionProps) {
+export default function InvestmentSuggestion({ newsData }: InvestmentSuggestionProps) {
 
-  const { suggestion, reason, priceTrend, averageScore, confidence, confidenceValue } = useMemo(() => {
+  const { suggestion, reason, averageScore, confidence, confidenceValue } = useMemo(() => {
     if (!newsData || newsData.length === 0) {
       return { suggestion: null };
     }
 
     const totalScore = newsData.reduce((acc, article) => acc + article.sentimentScore, 0);
     const avgScore = totalScore / newsData.length;
-
-    let trend = 0;
-    if (priceData && priceData.length > 1) {
-      const startPrice = priceData[0].price;
-      const endPrice = priceData[priceData.length - 1].price;
-      trend = ((endPrice - startPrice) / startPrice) * 100;
-    }
     
     let level: SuggestionLevel = 'Hold';
     let analysis = '';
@@ -51,27 +43,26 @@ export default function InvestmentSuggestion({ newsData, priceData }: Investment
     let confValue = 0;
 
     const absScore = Math.abs(avgScore);
-    const absTrend = Math.abs(trend);
 
-    if (avgScore > 0.25 && trend > 5) {
+    if (avgScore > 0.35) {
       level = 'Strong Buy';
-      analysis = 'Strong positive news sentiment is coupled with a clear upward price trend.';
-    } else if (avgScore > 0.1 || trend > 2) {
+      analysis = 'Sentiment from recent news is overwhelmingly positive.';
+    } else if (avgScore > 0.1) {
       level = 'Buy';
-      analysis = 'News sentiment is generally positive or the stock is showing upward momentum.';
-    } else if (avgScore < -0.25 && trend < -5) {
+      analysis = 'News sentiment is generally positive.';
+    } else if (avgScore < -0.35) {
       level = 'Strong Sell';
-      analysis = 'Strong negative news sentiment is combined with a significant downward price trend.';
-    } else if (avgScore < -0.1 || trend < -2) {
+      analysis = 'Sentiment from recent news is overwhelmingly negative.';
+    } else if (avgScore < -0.1) {
       level = 'Sell';
-      analysis = 'News sentiment is largely negative or the stock is showing downward momentum.';
+      analysis = 'News sentiment is largely negative.';
     } else {
       level = 'Hold';
-      analysis = 'News sentiment is mixed and the price action is relatively stable. Wait for a clearer signal.';
+      analysis = 'News sentiment is mixed or neutral. Wait for a clearer signal.';
     }
 
-    confValue = Math.min(((absScore / 0.5) + (absTrend / 10)) / 2 * 100, 100);
-
+    confValue = Math.min((absScore / 0.5) * 100, 100);
+    
     if (level === 'Hold') {
       confValue = 100 - confValue;
     }
@@ -87,12 +78,11 @@ export default function InvestmentSuggestion({ newsData, priceData }: Investment
     return { 
         suggestion: level, 
         reason: analysis, 
-        priceTrend: trend,
         averageScore: avgScore,
         confidence: conf,
         confidenceValue: confValue,
     };
-  }, [newsData, priceData]);
+  }, [newsData]);
 
   if (!suggestion) {
     return null;
@@ -107,7 +97,7 @@ export default function InvestmentSuggestion({ newsData, priceData }: Investment
           <Award className="h-5 w-5 text-primary" />
           Mojo's Take
         </CardTitle>
-        <CardDescription>An AI-generated investment outlook based on news and price trends.</CardDescription>
+        <CardDescription>An AI-generated investment outlook based on news sentiment.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="text-center">
@@ -121,19 +111,12 @@ export default function InvestmentSuggestion({ newsData, priceData }: Investment
         <p className="text-sm text-center text-muted-foreground">{reason}</p>
 
         <div className="space-y-4">
-             <div className="grid grid-cols-2 gap-4 text-center pt-2">
-                <div>
-                    <div className="flex items-center justify-center gap-2">
-                        {priceTrend > 1 ? <TrendingUp className="h-4 w-4 text-green-500" /> : priceTrend < -1 ? <TrendingDown className="h-4 w-4 text-red-500" /> : <Minus className="h-4 w-4 text-gray-500" />}
-                        <span className="text-xl font-bold">{priceTrend.toFixed(1)}%</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">30-Day Trend</div>
-                </div>
+             <div className="grid grid-cols-1 gap-4 text-center pt-2">
                 <div>
                      <div className={`text-xl font-bold ${averageScore > 0.1 ? 'text-green-500' : averageScore < -0.1 ? 'text-red-500' : 'text-gray-500'}`}>
                         {averageScore.toFixed(2)}
                     </div>
-                    <div className="text-xs text-muted-foreground">Sentiment Score</div>
+                    <div className="text-xs text-muted-foreground">Overall Sentiment Score</div>
                 </div>
             </div>
             <div>

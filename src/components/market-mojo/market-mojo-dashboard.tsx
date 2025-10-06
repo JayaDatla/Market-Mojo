@@ -3,30 +3,24 @@
 
 import { useState, useCallback, useTransition } from 'react';
 import { fetchAndAnalyzeNews } from '@/app/actions';
-import type { NewsArticle, TickerAnalysisOutput, PriceData } from '@/types';
+import type { NewsArticle, TickerAnalysisOutput } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
-import SentimentCharts from './sentiment-charts';
 import NewsFeed from './news-feed';
-import StaticAnalysis, { industryData } from './static-analysis';
+import StaticAnalysis from './static-analysis';
 import TopCompanies from './top-companies';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import InvestmentSuggestion from './investment-suggestion';
 
-type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[], currency: string }>;
-
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
   const [tickerInput, setTickerInput] = useState('');
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
-  const [priceData, setPriceData] = useState<PriceData[]>([]);
   const [rawApiData, setRawApiData] = useState<any>(null);
-  const [analysisCache, setAnalysisCache] = useState<AnalysisCache>({});
 
-  const [currency, setCurrency] = useState<string>('USD');
   const [isAnalyzing, startTransition] = useTransition();
   const [hasSearched, setHasSearched] = useState(false);
   const [noResults, setNoResults] = useState(false);
@@ -56,10 +50,8 @@ export default function MarketMojoDashboard() {
       setHasSearched(true);
       setNoResults(false);
       setNewsData([]);
-      setPriceData([]);
       setRawApiData(null);
       setTicker(input);
-      setCurrency('USD');
       
       const analysisResult = await fetchAndAnalyzeNews(input);
 
@@ -69,28 +61,15 @@ export default function MarketMojoDashboard() {
         setNewsData(articles);
         setRawApiData(analysisResult.rawResponse);
         setTicker(finalTicker);
-        setCurrency(articles[0].currency || 'USD');
-        
-        // Get static price data
-        const companyData = industryData[finalTicker.toUpperCase()];
-        setPriceData(companyData?.historicalData || []);
-
       } else {
         setRawApiData(analysisResult);
         setNoResults(true);
+        setTicker(normalizedInput);
         toast({
           variant: 'destructive',
           title: 'Sentiment Analysis Failed',
           description: analysisResult?.error || 'No news articles could be analyzed for this ticker.',
         });
-        
-        // Still try to show static price data if the input is a known ticker
-        const companyData = industryData[normalizedInput];
-        if (companyData?.historicalData) {
-            setPriceData(companyData.historicalData);
-            setTicker(normalizedInput);
-            setNoResults(false);
-        }
       }
     });
   };
@@ -98,7 +77,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, [handleAnalysis]);
+  }, []);
 
   const handleViewTicker = () => {
     if (tickerInput) {
@@ -109,8 +88,8 @@ export default function MarketMojoDashboard() {
   const displayTicker = ticker.toUpperCase();
   
   const isLoading = isAnalyzing;
-  const showDashboard = hasSearched && !isLoading && (newsData.length > 0 || priceData.length > 0);
-  const showNoResults = hasSearched && !isLoading && newsData.length === 0 && priceData.length === 0;
+  const showDashboard = hasSearched && !isLoading;
+  const showNoResults = hasSearched && !isLoading && newsData.length === 0;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -158,9 +137,21 @@ export default function MarketMojoDashboard() {
         ) : showDashboard ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              <SentimentCharts newsData={newsData} priceData={priceData} currency={currency} />
-              {newsData.length > 0 && <InvestmentSuggestion newsData={newsData} priceData={priceData} />}
-              {newsData.length > 0 && <NewsFeed newsData={newsData.slice(0, 5)} />}
+              {newsData.length > 0 ? (
+                <>
+                  <InvestmentSuggestion newsData={newsData} />
+                  <NewsFeed newsData={newsData.slice(0, 5)} />
+                </>
+              ) : showNoResults ? (
+                 <div className="text-center py-16 bg-card border border-dashed border-border/50 rounded-lg">
+                    <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-medium text-foreground">No Analysis Found</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Could not retrieve sentiment data for <span className="font-semibold text-foreground">{tickerInput}</span>.
+                    </p>
+                    <p className="text-sm text-muted-foreground">This could be due to a lack of recent news or an issue with the data service.</p>
+                 </div>
+              ) : null}
             </div>
             <div className="space-y-8">
               <div className="sticky top-24 space-y-8">
@@ -169,18 +160,6 @@ export default function MarketMojoDashboard() {
               </div>
             </div>
           </div>
-        ) : showNoResults ? (
-            <div className="text-center py-16 bg-card border border-dashed border-border/50 rounded-lg max-w-3xl mx-auto">
-                <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-medium text-foreground">No Analysis Found</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    Could not retrieve data for <span className="font-semibold text-foreground">{tickerInput}</span>.
-                </p>
-                 <p className="text-sm text-muted-foreground">This could be due to a lack of recent news or an issue with the data services.</p>
-                 <div className="mt-8">
-                    <TopCompanies onCompanySelect={handleCompanySelect} />
-                 </div>
-            </div>
         ) : (
           <div className="text-center">
             <TopCompanies onCompanySelect={handleCompanySelect} />
