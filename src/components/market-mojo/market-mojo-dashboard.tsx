@@ -46,6 +46,7 @@ export default function MarketMojoDashboard() {
       timestamp: { toDate: () => new Date() } as any,
       ticker: item.ticker.toUpperCase(),
       currency: item.currency,
+      companyCountry: item.companyCountry,
     }));
   };
 
@@ -61,36 +62,23 @@ export default function MarketMojoDashboard() {
       setCurrency(undefined);
 
       // --- Fetch Sentiment and Historical Data in Parallel ---
-      const sentimentPromise = fetchAndAnalyzeNews(input);
-      const historyPromise = fetch(`/api/stock-data?ticker=${input.toUpperCase()}`).then(res => {
-          if (!res.ok) {
-              // If the API fails, it will return a JSON with an error, so we parse it.
-              return res.json().then(err => { throw new Error(err.error) });
-          }
-          return res.json();
-      }).catch(e => {
-          // Network errors or other issues with fetch itself
-          console.warn(`Historical data fetch failed for ${input}:`, e.message);
-          return null; // Return null to indicate failure
-      });
-
-      const [sentimentResult, historyResult] = await Promise.all([
-          sentimentPromise,
-          historyPromise
-      ]);
-      // --- End Parallel Fetch ---
-
-      let finalTicker = input.toUpperCase();
+      const sentimentResult = await fetchAndAnalyzeNews(input);
       
-      // Process Sentiment Analysis Results
+      let finalTicker = input.toUpperCase();
+      let finalCurrency = 'USD';
+      let finalCompanyCountry = 'USA';
+
+      // Process Sentiment Analysis Results First
       if (sentimentResult && !sentimentResult.error && sentimentResult.analysis && sentimentResult.analysis.length > 0) {
         const articles = processAnalysisResult(sentimentResult);
         finalTicker = articles[0].ticker;
+        finalCurrency = articles[0].currency || 'USD';
+        finalCompanyCountry = articles[0].companyCountry || 'USA';
         
         setNewsData(articles);
         setRawApiData(sentimentResult.rawResponse);
         setTicker(finalTicker);
-        setCurrency(articles[0].currency || 'USD');
+        setCurrency(finalCurrency);
       } else {
         setRawApiData(sentimentResult);
         setTicker(input.toUpperCase());
@@ -101,25 +89,40 @@ export default function MarketMojoDashboard() {
         });
       }
 
-      // Process Historical Data Results
-      if (historyResult && historyResult.length > 0) {
-        setPriceData(historyResult);
-      } else {
-        // Fallback to static data if dynamic fetch fails or returns no data
-        const staticData = getStaticPriceData(finalTicker);
-        if (staticData) {
-            setPriceData(staticData);
-            console.log(`Using static price data for ${finalTicker}.`);
-        } else {
-            setPriceData([]);
-            if(hasSearched && !sentimentResult.error) { // Only toast if it's not the initial state and sentiment didn't also fail
-                 toast({
-                    variant: 'default',
-                    title: 'Historical Data Notice',
-                    description: `Could not fetch historical price data for ${finalTicker}.`,
-                });
-            }
-        }
+      // Now fetch historical data with resolved info
+      try {
+          const historyResponse = await fetch(`/api/stock-data?ticker=${finalTicker}&currency=${finalCurrency}&companyCountry=${finalCompanyCountry}`);
+          if (!historyResponse.ok) {
+              const err = await historyResponse.json();
+              throw new Error(err.error);
+          }
+          const historyResult = await historyResponse.json();
+
+          if (historyResult && historyResult.length > 0) {
+              setPriceData(historyResult);
+          } else {
+              throw new Error("No data returned from API.");
+          }
+      } catch (e: any) {
+          console.warn(`Dynamic historical data fetch failed for ${finalTicker}:`, e.message);
+          const staticData = getStaticPriceData(finalTicker);
+          if (staticData) {
+              setPriceData(staticData);
+              toast({
+                  variant: 'default',
+                  title: 'Data Notice',
+                  description: `Could not fetch live historical data. Showing static data for ${finalTicker}.`,
+              });
+          } else {
+              setPriceData([]);
+              if (!sentimentResult.error) {
+                  toast({
+                      variant: 'default',
+                      title: 'Historical Data Notice',
+                      description: `Could not fetch historical price data for ${finalTicker}.`,
+                  });
+              }
+          }
       }
     });
   };

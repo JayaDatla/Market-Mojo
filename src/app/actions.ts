@@ -13,13 +13,13 @@ const CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const generatePrompt = (tickerOrName: string) => `
 You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
 
-The user has provided the following identifier: "${tickerOrName}". This identifier could be a company name, ticker symbol, or other public reference. First, determine the exact company name, all publicly traded ticker symbols, and their associated listing exchanges.
+The user has provided the following identifier: "${tickerOrName}". This identifier could be a company name, ticker symbol, or other public reference. First, determine the exact company name, its country of origin (e.g., "USA", "India", "Germany"), all publicly traded ticker symbols, and their associated listing exchanges.
 
 CRITICAL: If the company is listed on a US-based exchange (e.g., NYSE, NASDAQ) in addition to its primary international exchange, you MUST prioritize and use the US-based ticker symbol. For all other companies, use the ticker from their primary exchange.
 
 For the selected ticker, determine the three-letter currency code corresponding to its exchange (e.g., "USD" for NASDAQ, "JPY" for Tokyo Stock Exchange, "INR" for NSE India).
 
-After confirming the single most appropriate ticker and its currency, search the web for the top 5 most recent credible news articles related to this company’s financial performance, operations, or major market-moving developments.
+After confirming the single most appropriate ticker, its currency, and country of origin, search the web for the top 5 most recent credible news articles related to this company’s financial performance, operations, or major market-moving developments.
 
 Strictly analyze each article snippet for its immediate impact on investor perception and potential influence on the stock price, ignoring all non-financial or non-investor-relevant context.
 
@@ -31,6 +31,7 @@ For each article, provide:
 - sentiment_score from -1.0 to 1.0
 - the identified ticker
 - the currency code of its primary exchange
+- the company's country of origin
 
 Return results strictly as a single valid JSON array of objects with the exact structure:
 [
@@ -41,7 +42,8 @@ Return results strictly as a single valid JSON array of objects with the exact s
     "sentiment": "Positive" | "Negative" | "Neutral",
     "sentiment_score": ...,
     "ticker": "...",
-    "currency": "..."
+    "currency": "...",
+    "companyCountry": "..."
   }
 ]
 Ensure no additional text, explanations, or formatting outside of the JSON is included in the final response.
