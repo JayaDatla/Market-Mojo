@@ -51,8 +51,8 @@ Ensure no additional text, explanations, or formatting outside of the JSON is in
 export async function fetchAndAnalyzeNews(
   tickerOrName: string
 ): Promise<TickerAnalysisOutput> {
-  const normalizedTicker = tickerOrName.trim().toUpperCase();
-  const cachedEntry = analysisCache.get(normalizedTicker);
+  const normalizedInput = tickerOrName.trim().toUpperCase();
+  const cachedEntry = analysisCache.get(normalizedInput);
 
   // Check if a valid, recent entry exists in the cache
   if (cachedEntry && (Date.now() - cachedEntry.timestamp < CACHE_DURATION_MS)) {
@@ -88,7 +88,6 @@ export async function fetchAndAnalyzeNews(
         const errorText = await response.text();
         console.error(`API request failed with status ${response.status}:`, errorText);
         const result: TickerAnalysisOutput = { error: `API request failed with status ${response.status}: ${errorText}` };
-        // Do not cache errors
         return result;
     }
 
@@ -100,7 +99,6 @@ export async function fetchAndAnalyzeNews(
         return result;
     }
     
-    // Regex to find JSON within ```json ... ``` or a raw array.
     const jsonRegex = /(?:```json\s*)?(\[.*\])/s;
     const match = content.match(jsonRegex);
 
@@ -116,8 +114,13 @@ export async function fetchAndAnalyzeNews(
       const analysis: ArticleAnalysis[] = JSON.parse(cleanedContent);
       const result: TickerAnalysisOutput = { analysis, rawResponse: data };
       
-      // Cache the successful result
-      analysisCache.set(normalizedTicker, { timestamp: Date.now(), data: result });
+      // If analysis is successful and contains data, cache it using the returned ticker.
+      if (analysis.length > 0 && analysis[0].ticker) {
+        const finalTicker = analysis[0].ticker.toUpperCase();
+        analysisCache.set(finalTicker, { timestamp: Date.now(), data: result });
+        // Also cache under the original user input to catch it on the next immediate try.
+        analysisCache.set(normalizedInput, { timestamp: Date.now(), data: result });
+      }
       
       return result;
     } catch (e: any) {
