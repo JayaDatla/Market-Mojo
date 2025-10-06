@@ -17,15 +17,29 @@ import InvestmentSuggestion from './investment-suggestion';
 import SentimentPieChart from './sentiment-pie-chart';
 import HistoricalPriceChart from './historical-price-chart';
 
+async function fetchStockData(ticker: string, currency: string): Promise<PriceData[] | { error: string }> {
+  try {
+    const response = await fetch(`/api/stock-data?ticker=${ticker}&currency=${currency}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { error: errorData.error || `Failed to fetch stock data with status: ${response.status}` };
+    }
+    return response.json();
+  } catch (error: any) {
+    return { error: error.message || 'An unknown error occurred while fetching stock data.' };
+  }
+}
+
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
   const [tickerInput, setTickerInput] = useState('');
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
+  const [priceData, setPriceData] = useState<PriceData[]>([]);
+  const [currency, setCurrency] = useState<string | undefined>(undefined);
   const [rawApiData, setRawApiData] = useState<any>(null);
 
   const [isAnalyzing, startTransition] = useTransition();
   const [hasSearched, setHasSearched] = useState(false);
-  const [noResults, setNoResults] = useState(false);
   const { toast } = useToast();
 
   const processAnalysisResult = (analysisResult: TickerAnalysisOutput) => {
@@ -48,27 +62,55 @@ export default function MarketMojoDashboard() {
 
     startTransition(async () => {
       setHasSearched(true);
-      setNoResults(false);
       setNewsData([]);
+      setPriceData([]);
       setRawApiData(null);
       setTicker(input.toUpperCase());
+      setCurrency(undefined);
 
-      const analysisResult = await fetchAndAnalyzeNews(input);
+      // --- Parallel Data Fetching ---
+      const sentimentPromise = fetchAndAnalyzeNews(input);
+      const stockDataPromise = fetchStockData(input, 'USD'); // Assume USD for now, will update later
+      
+      const [sentimentResult, stockResult] = await Promise.all([sentimentPromise, stockDataPromise]);
+      // --- End Parallel Data Fetching ---
 
-      if (analysisResult && !analysisResult.error && analysisResult.analysis && analysisResult.analysis.length > 0) {
-        const articles = processAnalysisResult(analysisResult);
-        const finalTicker = articles[0].ticker;
+      let finalTicker = input.toUpperCase();
+      let finalCurrency = 'USD';
+
+      // Process Sentiment Analysis Results
+      if (sentimentResult && !sentimentResult.error && sentimentResult.analysis && sentimentResult.analysis.length > 0) {
+        const articles = processAnalysisResult(sentimentResult);
+        finalTicker = articles[0].ticker;
+        finalCurrency = articles[0].currency || 'USD';
         setNewsData(articles);
-        setRawApiData(analysisResult.rawResponse);
+        setRawApiData(sentimentResult.rawResponse);
         setTicker(finalTicker);
+        setCurrency(finalCurrency);
+
+        // If stock fetch failed with initial input, retry with the official ticker
+        if ('error' in stockResult) {
+            const finalStockResult = await fetchStockData(finalTicker, finalCurrency);
+            if (!('error' in finalStockResult)) {
+                setPriceData(finalStockResult);
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Historical Data Failed',
+                    description: finalStockResult.error,
+                });
+            }
+        } else {
+             setPriceData(stockResult);
+        }
+
       } else {
-        setRawApiData(analysisResult);
-        setNoResults(true);
+        setRawApiData(sentimentResult);
         setTicker(input.toUpperCase());
         toast({
           variant: 'destructive',
           title: 'Sentiment Analysis Failed',
-          description: analysisResult?.error || 'No news articles could be analyzed for this ticker.',
+          description: sentimentResult?.error || 'No news articles could be analyzed for this ticker.',
         });
       }
     });
@@ -86,7 +128,8 @@ export default function MarketMojoDashboard() {
   };
   
   const displayTicker = ticker.toUpperCase();
-  
+  const averageSentiment = newsData.reduce((acc, article) => acc + article.sentimentScore, 0) / (newsData.length || 1);
+
   const isLoading = isAnalyzing;
   const showDashboard = hasSearched && !isLoading;
   const showNoResults = hasSearched && !isLoading && newsData.length === 0;
@@ -139,7 +182,7 @@ export default function MarketMojoDashboard() {
             <div className="lg:col-span-2 space-y-8">
               {newsData.length > 0 ? (
                 <>
-                  <HistoricalPriceChart />
+                  <HistoricalPriceChart priceData={priceData} sentimentScore={averageSentiment} currency={currency} />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <InvestmentSuggestion newsData={newsData} />
                     <SentimentPieChart newsData={newsData} />
