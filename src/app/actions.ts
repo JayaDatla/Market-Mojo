@@ -13,10 +13,10 @@ const CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const generatePrompt = (tickerOrName: string) => `
 You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to a specific company and its primary stock ticker.
 
-The user has provided the following identifier: "${tickerOrName}". This string contains either a company name and its country of origin, or a stock ticker and its country of origin.
+The user has provided the following identifier: "${tickerOrName}". This could be a company name (e.g., "Apple", "Tata Motors") or a stock ticker (e.g., "AAPL", "TATAMOTORS.NS").
 
 Your tasks are:
-1.  **Identify the Company and its Ticker**: From the input, identify the precise company name and its primary stock ticker symbol. You MUST prioritize the ticker symbol for the company's main listing exchange based on its country of origin. For example, for a company from India, prioritize the NSE or BSE ticker. For a US company, use the NYSE or NASDAQ ticker.
+1.  **Identify the Company, Ticker, and Country**: From the input, identify the precise company name, its primary stock ticker symbol, and its country of origin. You MUST prioritize the ticker symbol for the company's main listing exchange based on its country of origin. For example, for a company from India, prioritize the NSE or BSE ticker. For a US company, use the NYSE or NASDAQ ticker.
 2.  **Determine Currency**: Find the three-letter currency code for that primary exchange (e.g., "INR" for NSE, "USD" for NASDAQ).
 3.  **Analyze News**: Search the web for the top 5 most recent, credible news articles about the company's financial performance, product launches, or market-moving events.
 4.  **Extract Financial Sentiment**: For each article, provide a one-sentence summary of its financial impact, a sentiment classification ("Positive", "Negative", or "Neutral"), and a sentiment score from -1.0 to 1.0.
@@ -128,4 +128,3 @@ export async function fetchAndAnalyzeNews(
     return result;
   }
 }
-
