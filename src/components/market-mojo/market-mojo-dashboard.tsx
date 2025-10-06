@@ -47,11 +47,6 @@ export default function MarketMojoDashboard() {
     }));
   };
 
-  const getStaticPriceData = (tickerSymbol: string): PriceData[] => {
-    const company = industryData[tickerSymbol.toUpperCase()];
-    return company?.historicalData || [];
-  }
-
   const handleAnalysis = (input: string) => {
     if (!input) return;
 
@@ -77,8 +72,8 @@ export default function MarketMojoDashboard() {
         setCurrency(articles[0].currency || 'USD');
         
         // Get static price data
-        const staticPrices = getStaticPriceData(finalTicker);
-        setPriceData(staticPrices);
+        const companyData = industryData[finalTicker.toUpperCase()];
+        setPriceData(companyData?.historicalData || []);
 
       } else {
         setRawApiData(analysisResult);
@@ -90,9 +85,9 @@ export default function MarketMojoDashboard() {
         });
         
         // Still try to show static price data if the input is a known ticker
-        const staticPrices = getStaticPriceData(normalizedInput);
-        setPriceData(staticPrices);
-        if (staticPrices.length > 0) {
+        const companyData = industryData[normalizedInput];
+        if (companyData?.historicalData) {
+            setPriceData(companyData.historicalData);
             setTicker(normalizedInput);
             setNoResults(false);
         }
@@ -103,7 +98,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, []);
+  }, [handleAnalysis]);
 
   const handleViewTicker = () => {
     if (tickerInput) {
