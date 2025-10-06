@@ -106,39 +106,37 @@ export default function MarketMojoDashboard() {
       setSelectedTickerData(null);
       setPriceData([]);
 
-      // --- Parallel Data Fetching ---
       const analysisPromise = fetchAndAnalyzeNews(input);
-      const historyPromise = fetchHistoricalDataAuto(input);
 
-      const [analysisResult, historyResult] = await Promise.all([
-        analysisPromise,
-        historyPromise.catch(e => {
-            console.warn(`Dynamic historical data fetch failed for ${input}:`, e.message);
-            toast({
-                variant: 'default',
-                title: 'Historical Data Notice',
-                description: `Could not fetch historical price data for ${input}.`,
-            });
-            return null; // Return null on failure to not break Promise.all
-        })
-      ]);
-
-      // --- Process History Data First (for immediate UI update) ---
-      if (historyResult && historyResult.data && historyResult.data.length > 0) {
-        setPriceData(historyResult.data);
-      } else {
-        setPriceData([]);
-      }
-      
       // --- Process Analysis Data ---
-      setAnalysisResult(analysisResult);
-      if (analysisResult && !analysisResult.error && analysisResult.tickers && analysisResult.tickers.length > 0) {
-        setSelectedTickerData(analysisResult.tickers[0]);
+      const analysisData = await analysisPromise;
+      setAnalysisResult(analysisData);
+
+      if (analysisData && !analysisData.error && analysisData.tickers && analysisData.tickers.length > 0) {
+        const firstTicker = analysisData.tickers[0];
+        setSelectedTickerData(firstTicker);
+        
+        // --- Fetch History Data if company is not private ---
+        if (firstTicker.ticker !== 'PRIVATE') {
+            const historyResult = await fetchHistoricalDataAuto(firstTicker.ticker).catch(e => {
+                console.warn(`Historical data fetch failed for ${firstTicker.ticker}:`, e.message);
+                toast({
+                    variant: 'default',
+                    title: 'Historical Data Notice',
+                    description: `Could not fetch historical price data for ${firstTicker.ticker}.`,
+                });
+                return null;
+            });
+
+            if (historyResult && historyResult.data && historyResult.data.length > 0) {
+                setPriceData(historyResult.data);
+            }
+        }
       } else {
         toast({
           variant: 'destructive',
           title: 'Analysis Failed',
-          description: analysisResult?.error || 'No analysis could be performed for this input.',
+          description: analysisData?.error || 'No analysis could be performed for this input.',
         });
       }
     });
@@ -160,7 +158,7 @@ export default function MarketMojoDashboard() {
   
   // Determine what to show based on what data is available.
   const showPriceChart = hasSearched && priceData.length > 0;
-  const showSentimentAnalysis = hasSearched && !isLoading && selectedTickerData;
+  const showSentimentAnalysis = hasSearched && !isLoading && selectedTickerData && selectedTickerData.articles.length > 0;
   const showNoResults = hasSearched && !isLoading && (!analysisResult || !analysisResult.tickers || analysisResult.tickers.length === 0);
 
   return (
@@ -175,7 +173,7 @@ export default function MarketMojoDashboard() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="e.g., 'TSLA', 'Tata Motors', or 'Apple'"
+                  placeholder="e.g., 'TSLA', 'Zerodha', or 'Apple'"
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleViewTicker()}
@@ -203,7 +201,7 @@ export default function MarketMojoDashboard() {
                     currency={selectedTickerData?.currency}
                     exchange={selectedTickerData?.exchange || ''}
                   />
-                ) : isLoading ? (
+                ) : isLoading && selectedTickerData?.ticker !== 'PRIVATE' ? (
                     <div className="h-[365px] bg-card border-border/50 rounded-xl flex items-center justify-center">
                         <Loader2 className="animate-spin h-8 w-8 text-primary" />
                     </div>
@@ -215,7 +213,7 @@ export default function MarketMojoDashboard() {
                       <InvestmentSuggestion tickerData={selectedTickerData} />
                       <SentimentPieChart newsData={selectedTickerData.articles} />
                     </div>
-                    <MojoSynthesis sentimentAnalysis={selectedTickerData.analysis_summary} priceTrend={priceTrend} />
+                    {showPriceChart && <MojoSynthesis sentimentAnalysis={selectedTickerData.analysis_summary} priceTrend={priceTrend} />}
                     <NewsFeed newsData={selectedTickerData.articles} />
                   </>
                 ) : isLoading ? (

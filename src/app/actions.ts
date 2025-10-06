@@ -21,14 +21,14 @@ First, determine:
 2. The primary industry or sector the company operates in.
 3. The top 3-4 major competitors.
 4. A brief, 2-3 sentence analysis of the company's position within its sector, key drivers, and challenges.
-5. All publicly traded ticker symbols and their associated listing exchanges.
-6. The three-letter currency code corresponding to each exchange (e.g., "USD" for NASDAQ, "JPY" for Tokyo Stock Exchange).
 
-If the company is dual-listed (actively traded on more than one exchange), generate separate analyses for each listing using the correct ticker and currency.
+Next, determine if the company is publicly traded.
+- If it IS publicly traded, identify all ticker symbols and their associated listing exchanges, and the three-letter currency code for each (e.g., "USD" for NASDAQ).
+- If it is NOT publicly traded (it is a private company), set the "tickers" array to contain a single object with "ticker": "PRIVATE", "exchange": "N/A", "currency": "N/A".
 
-Next, search for the top 5 most recent credible financial news articles from the past 30 days related to the company's financial performance, operations, or other material developments that could affect investor sentiment or stock price.
+Then, search for the top 5 most recent credible news articles from the past 30 days related to the company's financial performance, operations, or other material developments that could affect market or investor sentiment.
 
-Analyze each article snippet solely for its relevance to investor perception and share price influence, ignoring non-financial or unrelated context.
+Analyze each article snippet solely for its relevance to investor perception and financial impact.
 
 For each article, return:
 - title
@@ -36,12 +36,12 @@ For each article, return:
 - one-sentence financial impact summary
 - sentiment classification: "Positive", "Negative", or "Neutral"
 - sentiment_score: a numeric value from -1.0 (strongly negative) to 1.0 (strongly positive)
-- ticker
-- currency
+- ticker (the relevant ticker, or "PRIVATE" if not applicable)
+- currency (the relevant currency, or "N/A" if not applicable)
 
-After processing all articles (maximum 5 per ticker), compute a summary of the overall sentiment across the most relevant articles, including:
+After processing all articles (maximum 5), compute a summary of the overall sentiment, including:
 - the average sentiment score
-- the dominant sentiment classification (based on majority or average polarity)
+- the dominant sentiment classification
 - a brief 2–3 sentence summary of the general investor outlook for the company over the past 30 days.
 
 Return all information as a single valid JSON object with the exact structure:
@@ -147,8 +147,11 @@ export async function fetchAndAnalyzeNews(
       
       // If analysis is successful and contains data, cache it.
       if (parsedJson.company && parsedJson.tickers && parsedJson.tickers.length > 0) {
-        const finalTicker = parsedJson.tickers[0].ticker.toUpperCase();
-        analysisCache.set(finalTicker, { timestamp: Date.now(), data: parsedJson });
+        // Use a consistent cache key, prefer the first ticker if available, otherwise the user input.
+        const cacheKey = parsedJson.tickers[0].ticker === 'PRIVATE' 
+            ? normalizedInput 
+            : parsedJson.tickers[0].ticker.toUpperCase();
+        analysisCache.set(cacheKey, { timestamp: Date.now(), data: parsedJson });
         analysisCache.set(normalizedInput, { timestamp: Date.now(), data: parsedJson });
       }
       
@@ -241,6 +244,9 @@ export async function fetchHistoricalDataAuto(
   companyNameOrTicker: string,
   days = 30
 ) {
+  if (companyNameOrTicker.trim().toUpperCase() === 'PRIVATE') {
+    return null;
+  }
   const searchResult = await searchYahooFinance(companyNameOrTicker);
   const history = await fetchChartData(searchResult.symbol, days);
 
