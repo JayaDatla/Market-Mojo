@@ -79,12 +79,7 @@ export const industryData: IndustryData = {
     industry: 'Financial Services',
     analysis: 'JPMorgan Chase is the largest bank in the United States. Its performance is linked to interest rates, economic growth, and the health of global financial markets. It operates across investment banking, consumer banking, and asset management.',
     competitors: ['Bank of America (BAC)', 'Goldman Sachs (GS)', 'Morgan Stanley (MS)'],
-    historicalData: [{"date":"2024-04-29","close":194.02},{"date":"2024-04-30","close":190.17},{"date":"2024-05-01","close":188.08},{"date":"2024-05-02","close":191.06},{"date":"2024-05-03","close":193.30},{"date":"2024-05-06","close":196.44},{"date":"2024-05-07","close":198.88},{"date":"2024-05-08","close":200.08},{"date":"2024-05-09","close":201.27},{"date":"2024-05-10","close":200.32},{"date":"2024-05-13","close":199.19},{"date":"2024-05-14","close":201.28},{"date":"2024-05-15","close":203.46},{"date":"2024-05-16","close":204.81},{"date":"2024-05-17","close":203.88},{"date":"2024-05-20","close":205.61},{"date":"2024-05-21","close":205.21},{"date":"2024-05-22","close":203.81},{"date":"2024-05-23","close":201.55},{"date":"2024-05-24","close":201.35}],
-  },
-  'RHHBY': {
-    industry: 'Pharmaceuticals & Diagnostics',
-    analysis: 'Roche is a Swiss multinational healthcare company that operates under two divisions: Pharmaceuticals and Diagnostics. Its performance is driven by its strong portfolio of oncology drugs and leadership in in-vitro diagnostics.',
-    competitors: ['Novartis (NVS)', 'Pfizer (PFE)', 'Merck (MRK)'],
+    historicalData: [{"date":"2024-04-29","close":194.02},{"date":"2024-04-30","close":190.17},{"date":"2024-05-01","close":188.08},{"date":"2024-05-02","close":191.06},{"date":"2024-05-03","close":193.30},{"date":"2024-05-06","close":196.44},{"date":"2024-0s-07","close":198.88},{"date":"2024-05-08","close":200.08},{"date":"2024-05-09","close":201.27},{"date":"2024-05-10","close":200.32},{"date":"2024-05-13","close":199.19},{"date":"2024-05-14","close":201.28},{"date":"2024-05-15","close":203.46},{"date":"2024-05-16","close":204.81},{"date":"2024-05-17","close":203.88},{"date":"2024-05-20","close":205.61},{"date":"2024-05-21","close":205.21},{"date":"2024-05-22","close":203.81},{"date":"2024-05-23","close":201.55},{"date":"2024-05-24","close":201.35}],
   },
 };
 
