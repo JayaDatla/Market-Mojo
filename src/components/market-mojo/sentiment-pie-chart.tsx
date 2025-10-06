@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import type { NewsArticle } from '@/types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { TrendingUp } from 'lucide-react';
+import { DropShadowFilter } from '@/components/ui/filters';
+
 
 interface SentimentPieChartProps {
   newsData: NewsArticle[];
@@ -35,8 +37,8 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
     });
     return [
       { name: 'Positive', value: counts.Positive, color: 'hsl(142.1 76.2% 36.3%)' }, // Green
-      { name: 'Neutral', value: counts.Neutral, color: 'hsl(240 4.9% 83.9%)' }, // Gray
-      { name: 'Negative', value: counts.Negative, color: 'hsl(0 62.8% 30.6%)' }, // Red (destructive)
+      { name: 'Neutral', value: counts.Neutral, color: 'hsl(221.2 83.2% 53.3%)' }, // Blue
+      { name: 'Negative', value: counts.Negative, color: 'hsl(0 72.2% 50.6%)' }, // Red
     ].filter(d => d.value > 0);
   }, [newsData]);
 
@@ -57,6 +59,9 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
         <div style={{ width: '100%', height: 250 }}>
           <ResponsiveContainer>
             <PieChart>
+                <defs>
+                    <DropShadowFilter id="pie-shadow" />
+                </defs>
               <Pie
                 data={sentimentDistribution}
                 cx="50%"
@@ -66,6 +71,7 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
                 outerRadius={100}
                 fill="#8884d8"
                 dataKey="value"
+                filter="url(#pie-shadow)"
               >
                 {sentimentDistribution.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
