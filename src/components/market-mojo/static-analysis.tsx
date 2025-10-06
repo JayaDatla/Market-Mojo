@@ -70,9 +70,9 @@ export const industryData: { [key: string]: { industry: string; analysis: string
     competitors: ['ExxonMobil (XOM)', 'Chevron (CVX)', 'BP (BP)'],
   },
   '700.HK': {
-      industry: 'Internet & Technology',
-      analysis: 'Tencent Holdings is a Chinese multinational conglomerate with subsidiaries in entertainment, AI, and other technology. Its performance is impacted by domestic regulatory changes and its vast portfolio of games and social media.',
-      competicians: ['Alibaba (BABA)', 'ByteDance', 'NetEase (NTES)'],
+    industry: 'Internet & Technology',
+    analysis: 'Tencent Holdings is a Chinese multinational conglomerate with subsidiaries in entertainment, AI, and other technology. Its performance is impacted by domestic regulatory changes and its vast portfolio of games and social media.',
+    competitors: ['Alibaba (BABA)', 'ByteDance', 'NetEase (NTES)'],
   }
 };
 
