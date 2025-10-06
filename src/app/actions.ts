@@ -9,12 +9,26 @@ const PERPLEXITY_MODEL = "sonar";
 const generatePrompt = (tickerOrName: string) => `
 You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
 
-The user has provided the following identifier: "${tickerOrName}". First, identify the correct company. After identifying the correct company, search the web for the top 5 most recent news articles for it.
+The user has provided the following identifier: "${tickerOrName}". This identifier could be a company name, ticker symbol, or other public reference. First, determine the exact company name, all publicly traded ticker symbols, and their associated listing exchanges. For each ticker, determine the three-letter currency code corresponding to its primary exchange (e.g., "USD" for NASDAQ, "JPY" for Tokyo Stock Exchange, "INR" for NSE India).
 
-Strictly analyze these news snippets for their immediate impact on investor perception and stock price, ignoring all non-financial context.
-For each article, provide a one-sentence summary, determine if the sentiment is "Positive", "Negative", or "Neutral", provide a sentiment_score from -1.0 to 1.0, the identified ticker, and the three-letter currency code for the stock's primary exchange (e.g., "JPY", "INR", "USD").
+Begin by identifying the company's primary/listing exchange and associated currency. If the company is dual-listed (actively publicly traded on more than one exchange), provide separate analyses for each listing using the correct ticker and currency for each exchange.
 
-Your response MUST be a single, valid JSON array of objects, and nothing else. Do not include any introductory text, closing text, or markdown formatting. The JSON should have the following structure:
+After confirming the ticker(s) and currency(ies), search the web for the top 5 most recent credible news articles related to this company’s financial performance, operations, or major market-moving developments.
+
+Strictly analyze each article snippet for its immediate impact on investor perception and potential influence on the stock price, ignoring all non-financial or non-investor-relevant context.
+
+For each article, provide:
+- title
+- url
+- one-sentence financial impact summary
+- sentiment classification: "Positive", "Negative", or "Neutral"
+- sentiment_score from -1.0 to 1.0
+- the identified ticker
+- the currency code of its primary exchange
+
+If there are multiple tickers because of dual/multiple listings, separate each group of 5 articles per ticker and exchange. Ensure that each article is tagged with the correct ticker and currency for its context.
+
+Return results strictly as a single valid JSON array of objects with the exact structure:
 [
   {
     "title": "...",
@@ -26,6 +40,7 @@ Your response MUST be a single, valid JSON array of objects, and nothing else. D
     "currency": "..."
   }
 ]
+Ensure no additional text, explanations, or formatting outside of the JSON is included in the final response.
 `;
 
 export async function fetchAndAnalyzeNews(
@@ -91,7 +106,7 @@ export async function fetchAndAnalyzeNews(
   } catch (e: any) {
     console.error(`Error analyzing ticker ${tickerOrName}:`, e);
     return {
-      error: e.message || `An unexpected error occurred while analyzing ${tickerOrname}.`,
+      error: e.message || `An unexpected error occurred while analyzing ${tickerOrName}.`,
     };
   }
 }
