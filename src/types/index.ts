@@ -33,13 +33,8 @@ export type TickerAnalysisOutput = {
 
 // This type represents a single day of historical price data from Yahoo Finance
 export type PriceData = {
-  date: string;
-  open?: number;
-  high?: number;
-  low?: number;
-  close: number;
-  adjClose?: number;
-  volume?: number;
+  date: string; // e.g., "2024-05-28"
+  close: number; // e.g., 1064.69
 };
 
     
