@@ -15,24 +15,27 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import InvestmentSuggestion from './investment-suggestion';
+import { subDays, format } from 'date-fns';
 
 type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[] }>;
 
-async function fetchHistoricalData(ticker: string): Promise<PriceData[]> {
-    try {
-        const response = await fetch(`/api/stock-data?ticker=${ticker}`);
-        if (!response.ok) {
-            // Don't throw, just log and return empty array so the app doesn't crash
-            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
-            console.error(`Failed to fetch historical data for ${ticker}:`, errorData.error || response.statusText);
-            return [];
-        }
-        const data = await response.json();
-        return data.historicalData || [];
-    } catch (error) {
-        console.error('Error fetching historical data:', error);
-        return []; // Return empty array on any failure
-    }
+function generatePriceData(ticker: string): PriceData[] {
+  const data: PriceData[] = [];
+  let price = 50 + Math.random() * 200; // Start with a random base price
+  const volatility = 0.1; // Max 10% change per day
+
+  for (let i = 30; i >= 0; i--) {
+    const changePercent = (Math.random() - 0.5) * 2 * volatility;
+    price *= (1 + changePercent);
+    price = Math.max(price, 1); // Ensure price doesn't go below 1
+
+    const date = subDays(new Date(), i);
+    data.push({
+      date: format(date, 'yyyy-MM-dd'),
+      price: parseFloat(price.toFixed(2)),
+    });
+  }
+  return data;
 }
 
 
@@ -69,7 +72,6 @@ export default function MarketMojoDashboard() {
 
     const normalizedInput = input.trim().toUpperCase();
 
-    // Simplified cache check
     if (analysisCache[normalizedInput]) {
         const cached = analysisCache[normalizedInput];
         const articles = processAnalysisResult(cached.analysis);
@@ -103,12 +105,11 @@ export default function MarketMojoDashboard() {
         const articles = processAnalysisResult(analysisResult);
         const identifiedTicker = articles[0].ticker;
         
-        // Fetch historical data from our new API route
-        const historicalData = await fetchHistoricalData(identifiedTicker);
-        const identifiedCurrency = historicalData.length > 0 ? (historicalData[0] as any).currency : (articles[0].currency || 'USD');
+        const generatedPriceData = generatePriceData(identifiedTicker);
+        const identifiedCurrency = articles[0].currency || 'USD';
 
         setNewsData(articles);
-        setPriceData(historicalData);
+        setPriceData(generatedPriceData);
         setRawApiData(analysisResult.rawResponse);
         setTicker(identifiedTicker);
         setCurrency(identifiedCurrency);
@@ -116,8 +117,8 @@ export default function MarketMojoDashboard() {
 
         setAnalysisCache(prevCache => ({
           ...prevCache,
-          [normalizedInput]: { analysis: analysisResult, prices: historicalData },
-          ...(identifiedTicker !== normalizedInput && { [identifiedTicker]: { analysis: analysisResult, prices: historicalData } }),
+          [normalizedInput]: { analysis: analysisResult, prices: generatedPriceData },
+          ...(identifiedTicker !== normalizedInput && { [identifiedTicker]: { analysis: analysisResult, prices: generatedPriceData } }),
         }));
       } else {
         setRawApiData(analysisResult);
@@ -134,7 +135,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, [analysisCache]); // Simplified dependency array
+  }, [analysisCache]);
 
   const handleViewTicker = () => {
     if (tickerInput) {
