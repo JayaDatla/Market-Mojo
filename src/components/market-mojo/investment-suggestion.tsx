@@ -30,11 +30,11 @@ const suggestionStyles: Record<SuggestionLevel, {
 export default function InvestmentSuggestion({ tickerData }: InvestmentSuggestionProps) {
 
   const { suggestion, confidence, confidenceValue } = useMemo(() => {
-    if (!tickerData || !tickerData.analysis_summary) {
-      return { suggestion: null };
+    if (!tickerData?.analysis_summary?.average_sentiment_score) {
+      return { suggestion: null, confidence: null, confidenceValue: 0 };
     }
 
-    const { average_sentiment_score, dominant_sentiment } = tickerData.analysis_summary;
+    const { average_sentiment_score } = tickerData.analysis_summary;
     
     let level: SuggestionLevel = 'Hold';
     let conf: ConfidenceLevel = 'Low';
@@ -72,6 +72,8 @@ export default function InvestmentSuggestion({ tickerData }: InvestmentSuggestio
   const style = suggestionStyles[suggestion];
   const { average_sentiment_score, investor_outlook } = tickerData.analysis_summary;
 
+  const hasValidScore = typeof average_sentiment_score === 'number';
+
   return (
     <Card className="bg-card border-border/50">
       <CardHeader>
@@ -95,19 +97,21 @@ export default function InvestmentSuggestion({ tickerData }: InvestmentSuggestio
         <div className="space-y-4">
              <div className="grid grid-cols-1 gap-4 text-center pt-2">
                 <div>
-                     <div className={`text-xl font-bold ${average_sentiment_score > 0.1 ? 'text-green-500' : average_sentiment_score < -0.1 ? 'text-red-500' : 'text-gray-500'}`}>
-                        {average_sentiment_score.toFixed(2)}
+                     <div className={`text-xl font-bold ${hasValidScore && average_sentiment_score > 0.1 ? 'text-green-500' : hasValidScore && average_sentiment_score < -0.1 ? 'text-red-500' : 'text-gray-500'}`}>
+                        {hasValidScore ? average_sentiment_score.toFixed(2) : 'N/A'}
                     </div>
                     <div className="text-xs text-muted-foreground">Overall Sentiment Score</div>
                 </div>
             </div>
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-muted-foreground">Confidence Level</span>
-                <span className="text-xs font-semibold text-foreground">{confidence}</span>
+            {confidence && (
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs text-muted-foreground">Confidence Level</span>
+                  <span className="text-xs font-semibold text-foreground">{confidence}</span>
+                </div>
+                <Progress value={confidenceValue} className="h-2" />
               </div>
-              <Progress value={confidenceValue} className="h-2" />
-            </div>
+            )}
         </div>
       </CardContent>
     </Card>
