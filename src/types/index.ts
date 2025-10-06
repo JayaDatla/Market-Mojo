@@ -1,3 +1,4 @@
+
 import type { Timestamp } from "firebase/firestore";
 
 export type NewsArticle = {
@@ -28,4 +29,10 @@ export type TickerAnalysisOutput = {
   analysis?: ArticleAnalysis[];
   error?: string;
   rawResponse?: any;
+};
+
+// This type represents a single day of historical price data
+export type PriceData = {
+  date: string; // "YYYY-MM-DD"
+  price: number;
 };
