@@ -9,14 +9,14 @@ import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
 import SentimentCharts from './sentiment-charts';
 import NewsFeed from './news-feed';
-import StaticAnalysis, { industryData } from './static-analysis';
+import StaticAnalysis from './static-analysis';
 import TopCompanies from './top-companies';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import InvestmentSuggestion from './investment-suggestion';
 
-type AnalysisCache = Record<string, TickerAnalysisOutput>;
+type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[] }>;
 
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
@@ -30,8 +30,41 @@ export default function MarketMojoDashboard() {
   const [noResults, setNoResults] = useState(false);
   const { toast } = useToast();
 
+  const processAnalysisResult = (analysisResult: TickerAnalysisOutput) => {
+    if (!analysisResult.analysis || analysisResult.analysis.length === 0) return [];
+    return analysisResult.analysis.map((item, index) => ({
+      id: `${item.ticker}-${index}-${Date.now()}`,
+      newsTitle: item.title,
+      summary: item.summary,
+      sentimentScore: item.sentiment_score,
+      sentimentLabel: item.sentiment,
+      sourceUri: item.url,
+      timestamp: { toDate: () => new Date() } as any,
+      ticker: item.ticker.toUpperCase(),
+    }));
+  };
+
   const handleAnalysis = (input: string) => {
     if (!input) return;
+
+    const normalizedInput = input.trim().toUpperCase();
+
+    // Check cache first
+    if (analysisCache[normalizedInput]) {
+      const cached = analysisCache[normalizedInput];
+      setNewsData(processAnalysisResult(cached.analysis));
+      setPriceData(cached.prices);
+      setRawApiData(cached.analysis.rawResponse);
+      setTicker(processAnalysisResult(cached.analysis)[0]?.ticker || normalizedInput);
+      setHasSearched(true);
+      setNoResults(false);
+      toast({
+        title: 'Loaded from Cache',
+        description: `Displaying cached analysis for ${normalizedInput}.`,
+      });
+      return;
+    }
+
 
     setHasSearched(true);
     setNoResults(false);
@@ -41,82 +74,34 @@ export default function MarketMojoDashboard() {
     setTicker(input);
 
     startTransition(async () => {
-      let result: TickerAnalysisOutput | null = null;
-      const MAX_RETRIES = 2;
+      const analysisResult = await fetchAndAnalyzeNews(input);
 
-      for (let i = 0; i <= MAX_RETRIES; i++) {
-        try {
-          const analysisResult = await fetchAndAnalyzeNews(input);
-          result = analysisResult;
-          setRawApiData(analysisResult);
-          
-          if (analysisResult.analysis && analysisResult.analysis.length > 0) {
-            break; // Success
-          }
-        } catch (e: any) {
-            result = { error: e.message || 'An unexpected error occurred during analysis.' };
-        }
+      if (analysisResult && !analysisResult.error && analysisResult.analysis && analysisResult.analysis.length > 0) {
+        const articles = processAnalysisResult(analysisResult);
+        const identifiedTicker = articles[0].ticker;
+        const historicalData = await fetchHistoricalData(identifiedTicker);
 
-        if (i < MAX_RETRIES) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
-        }
-      }
-      
-      const processResult = (analysisResult: TickerAnalysisOutput) => {
-        if (!analysisResult.analysis || analysisResult.analysis.length === 0) return [];
-        return analysisResult.analysis.map((item, index) => ({
-          id: `${item.ticker}-${index}-${Date.now()}`,
-          newsTitle: item.title,
-          summary: item.summary,
-          sentimentScore: item.sentiment_score,
-          sentimentLabel: item.sentiment,
-          sourceUri: item.url,
-          timestamp: { toDate: () => new Date() } as any,
-          ticker: item.ticker.toUpperCase(),
-        }));
-      };
-
-      if (result && !result.error && result.analysis && result.analysis.length > 0) {
-        const articles = processResult(result);
         setNewsData(articles);
+        setPriceData(historicalData);
+        setRawApiData(analysisResult.rawResponse);
+        setTicker(identifiedTicker);
+        setNoResults(false);
+
+        // Store in cache
         setAnalysisCache(prevCache => ({
           ...prevCache,
-          [input]: { analysis: result?.analysis, rawResponse: result?.rawResponse },
+          [normalizedInput]: { analysis: analysisResult, prices: historicalData },
+          // Also cache by the identified ticker if different
+          ...(identifiedTicker !== normalizedInput && { [identifiedTicker]: { analysis: analysisResult, prices: historicalData } }),
         }));
-        
-        const identifiedTicker = articles[0].ticker;
-        if (identifiedTicker) {
-          setTicker(identifiedTicker);
-          const historicalData = await fetchHistoricalData(identifiedTicker);
-          setPriceData(historicalData);
-        }
-
       } else {
-        const cachedData = analysisCache[input];
-        if (cachedData && cachedData.analysis) {
-          const articles = processResult(cachedData);
-          setNewsData(articles);
-          setRawApiData(cachedData.rawResponse);
-          toast({
-            title: 'Live Analysis Failed',
-            description: `Showing previously cached data for ${input}.`,
-          });
-          
-          const identifiedTicker = articles[0]?.ticker;
-          if (identifiedTicker) {
-            setTicker(identifiedTicker);
-            const historicalData = await fetchHistoricalData(identifiedTicker);
-            setPriceData(historicalData);
-          }
-        } else {
-          setRawApiData(result);
-          setNoResults(true);
-          toast({
-            variant: 'destructive',
-            title: 'Analysis Failed',
-            description: result?.error || 'No news articles could be analyzed for this ticker.',
-          });
-        }
+        setRawApiData(analysisResult);
+        setNoResults(true);
+        toast({
+          variant: 'destructive',
+          title: 'Analysis Failed',
+          description: analysisResult?.error || 'No news articles could be analyzed for this ticker.',
+        });
       }
     });
   };
@@ -124,7 +109,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, []);
+  }, [analysisCache]); // Add analysisCache to dependency array
 
   const handleViewTicker = () => {
     if (tickerInput) {
