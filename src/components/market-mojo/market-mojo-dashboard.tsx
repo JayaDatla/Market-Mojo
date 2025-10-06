@@ -100,46 +100,48 @@ export default function MarketMojoDashboard() {
 
     startTransition(async () => {
       setHasSearched(true);
+      // Reset states but keep previous data for a smoother transition
       setAnalysisResult(null);
       setSelectedTickerData(null);
       setPriceData([]);
-      
-      const result = await fetchAndAnalyzeNews(input);
-      setAnalysisResult(result);
 
-      if (result && !result.error && result.tickers && result.tickers.length > 0) {
-        const primaryTickerData = result.tickers[0];
-        setSelectedTickerData(primaryTickerData);
-        
-        try {
-          const historyResponse = await fetch(`/api/stock-data?ticker=${encodeURIComponent(primaryTickerData.ticker)}`);
-          
-          if (!historyResponse.ok) {
-              const err = await historyResponse.json();
-              throw new Error(err.error || 'Unknown error from history API');
-          }
-          
-          const historyResult = await historyResponse.json();
+      // --- Parallel Data Fetching ---
+      const analysisPromise = fetchAndAnalyzeNews(input);
+      const historyPromise = fetch(`/api/stock-data?ticker=${encodeURIComponent(input)}`);
 
-          if (historyResult && historyResult.length > 0) {
-              setPriceData(historyResult);
-          } else {
-             setPriceData([]);
-          }
-        } catch (e: any) {
-          console.warn(`Dynamic historical data fetch failed for ${primaryTickerData.ticker}:`, e.message);
-          setPriceData([]);
-          toast({
-              variant: 'default',
-              title: 'Historical Data Notice',
-              description: `Could not fetch historical price data for ${primaryTickerData.ticker}.`,
-          });
+      const [analysisResult, historyResponse] = await Promise.all([
+        analysisPromise,
+        historyPromise
+      ]);
+
+      // --- Process History Data First (for immediate UI update) ---
+      if (historyResponse.ok) {
+        const historyResult = await historyResponse.json();
+        if (historyResult && historyResult.length > 0) {
+            setPriceData(historyResult);
+        } else {
+            setPriceData([]);
         }
+      } else {
+        const err = await historyResponse.json();
+        console.warn(`Dynamic historical data fetch failed for ${input}:`, err.error);
+        setPriceData([]);
+        toast({
+            variant: 'default',
+            title: 'Historical Data Notice',
+            description: `Could not fetch historical price data for ${input}.`,
+        });
+      }
+      
+      // --- Process Analysis Data ---
+      setAnalysisResult(analysisResult);
+      if (analysisResult && !analysisResult.error && analysisResult.tickers && analysisResult.tickers.length > 0) {
+        setSelectedTickerData(analysisResult.tickers[0]);
       } else {
         toast({
           variant: 'destructive',
           title: 'Analysis Failed',
-          description: result?.error || 'No analysis could be performed for this input.',
+          description: analysisResult?.error || 'No analysis could be performed for this input.',
         });
       }
     });
@@ -157,10 +159,11 @@ export default function MarketMojoDashboard() {
   };
 
   const isLoading = isAnalyzing;
-  const showDashboard = hasSearched && !isLoading && selectedTickerData;
+  
+  // Determine what to show based on what data is available.
+  const showPriceChart = hasSearched && priceData.length > 0;
+  const showSentimentAnalysis = hasSearched && !isLoading && selectedTickerData;
   const showNoResults = hasSearched && !isLoading && (!analysisResult || !analysisResult.tickers || analysisResult.tickers.length === 0);
-
-  const displayTicker = selectedTickerData?.ticker.toUpperCase() || userInput.toUpperCase();
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -187,58 +190,77 @@ export default function MarketMojoDashboard() {
             </div>
         </div>
         
-        {isLoading ? (
+        {isLoading && !hasSearched ? (
           <div className="text-center py-16">
             <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
             <p className="text-muted-foreground mt-4">Analyzing {userInput}...</p>
           </div>
-        ) : showDashboard ? (
+        ) : hasSearched ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              <>
-                  <HistoricalPriceChart 
+                {showPriceChart ? (
+                   <HistoricalPriceChart 
                     priceData={priceData} 
                     priceTrend={priceTrend}
-                    currency={selectedTickerData.currency}
-                    exchange={selectedTickerData.exchange}
+                    currency={selectedTickerData?.currency}
+                    exchange={selectedTickerData?.exchange || ''}
                   />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <InvestmentSuggestion tickerData={selectedTickerData} />
-                    <SentimentPieChart newsData={selectedTickerData.articles} />
-                  </div>
-                  <MojoSynthesis sentimentAnalysis={selectedTickerData.analysis_summary} priceTrend={priceTrend} />
-                  <NewsFeed newsData={selectedTickerData.articles} />
-              </>
+                ) : isLoading ? (
+                    <div className="h-[365px] bg-card border-border/50 rounded-xl flex items-center justify-center">
+                        <Loader2 className="animate-spin h-8 w-8 text-primary" />
+                    </div>
+                ): null}
+
+              {showSentimentAnalysis ? (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <InvestmentSuggestion tickerData={selectedTickerData} />
+                      <SentimentPieChart newsData={selectedTickerData.articles} />
+                    </div>
+                    <MojoSynthesis sentimentAnalysis={selectedTickerData.analysis_summary} priceTrend={priceTrend} />
+                    <NewsFeed newsData={selectedTickerData.articles} />
+                  </>
+                ) : isLoading ? (
+                     <div className="space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <Skeleton className="h-[270px] rounded-xl" />
+                            <Skeleton className="h-[270px] rounded-xl" />
+                        </div>
+                        <Skeleton className="h-[240px] rounded-xl" />
+                        <Skeleton className="h-[400px] rounded-xl" />
+                    </div>
+                ) : null }
+
+                {showNoResults && (
+                   <div className="text-center py-16 bg-card border border-dashed border-border/50 rounded-lg">
+                       <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
+                       <h3 className="mt-4 text-lg font-medium text-foreground">No Analysis Found</h3>
+                       <p className="mt-1 text-sm text-muted-foreground">
+                           Could not retrieve sentiment data for <span className="font-semibold text-foreground">{userInput}</span>.
+                       </p>
+                        {analysisResult?.rawResponse && (
+                          <Accordion type="single" collapsible className="w-full mt-4 max-w-xl mx-auto text-left">
+                            <AccordionItem value="item-1">
+                              <AccordionTrigger>View Raw API Response</AccordionTrigger>
+                              <AccordionContent>
+                                <pre className="p-4 bg-muted rounded-md text-xs overflow-x-auto">
+                                  <code>{JSON.stringify(analysisResult.rawResponse, null, 2)}</code>
+                                </pre>
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                       )}
+                   </div>
+                )}
             </div>
             <div className="space-y-8 lg:sticky lg:top-24 self-start">
-              <StaticAnalysis 
-                isLoading={isLoading}
+               <StaticAnalysis 
+                isLoading={isLoading && !analysisResult}
                 analysisData={analysisResult?.industryAnalysis} 
               />
               <TopCompanies onCompanySelect={handleCompanySelect} />
             </div>
           </div>
-        ) : showNoResults ? (
-            <div className="text-center py-16 bg-card border border-dashed border-border/50 rounded-lg max-w-3xl mx-auto">
-               <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
-               <h3 className="mt-4 text-lg font-medium text-foreground">No Analysis Found</h3>
-               <p className="mt-1 text-sm text-muted-foreground">
-                   Could not retrieve sentiment data for <span className="font-semibold text-foreground">{userInput}</span>.
-               </p>
-               <p className="text-sm text-muted-foreground">This could be due to a lack of recent news or an issue with the data service.</p>
-               {analysisResult?.rawResponse && (
-                  <Accordion type="single" collapsible className="w-full mt-4 max-w-xl mx-auto text-left">
-                    <AccordionItem value="item-1">
-                      <AccordionTrigger>View Raw API Response</AccordionTrigger>
-                      <AccordionContent>
-                        <pre className="p-4 bg-muted rounded-md text-xs overflow-x-auto">
-                          <code>{JSON.stringify(analysisResult.rawResponse, null, 2)}</code>
-                        </pre>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-               )}
-            </div>
         ) : (
           <div className="max-w-4xl mx-auto">
             <TopCompanies onCompanySelect={handleCompanySelect} />
