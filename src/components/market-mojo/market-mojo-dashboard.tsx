@@ -18,6 +18,22 @@ import InvestmentSuggestion from './investment-suggestion';
 
 type AnalysisCache = Record<string, TickerAnalysisOutput>;
 
+const generatePriceData = (base: number) => {
+  const data = [];
+  let currentDate = new Date();
+  currentDate.setDate(currentDate.getDate() - 30);
+  for (let i = 0; i < 30; i++) {
+    currentDate.setDate(currentDate.getDate() + 1);
+    const fluctuation = (Math.random() - 0.5) * (base * 0.05);
+    const price = base + fluctuation * i * 0.2 + Math.sin(i / 5) * 5;
+    data.push({
+      date: currentDate.toISOString().split('T')[0],
+      price: parseFloat(price.toFixed(2)),
+    });
+  }
+  return data;
+};
+
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
   const [tickerInput, setTickerInput] = useState('');
@@ -123,7 +139,7 @@ export default function MarketMojoDashboard() {
   };
   
   const displayTicker = (newsData.length > 0 ? newsData[0].ticker : ticker).toUpperCase();
-  const currentPriceData = industryData[displayTicker]?.priceData;
+  const currentPriceData = industryData[displayTicker]?.priceData ?? generatePriceData(100 + Math.random() * 400); // Generate placeholder if not found
   
   const isLoading = isAnalyzing;
   const showDashboard = newsData.length > 0 && hasSearched;
