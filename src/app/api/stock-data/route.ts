@@ -45,9 +45,10 @@ async function resolveTicker(query: string): Promise<string> {
 
   // 3️⃣ Try fallback suffixes (regional)
   const suffixes = ['.NS', '.BO', '.L', '.DE', '.SW', '.T', '.KS', '.TO', '.AX'];
+  const baseTicker = query.split(' ')[0]; // Use only the first word for suffix appending
   for (const sfx of suffixes) {
     try {
-      const t = `${query}${sfx}`;
+      const t = `${baseTicker}${sfx}`;
       const url = `https://finance.yahoo.com/quote/${t}`;
       const res = await axios.get(url, axiosOptions);
       if (res.status === 200 && res.data.includes('Currency in')) {
