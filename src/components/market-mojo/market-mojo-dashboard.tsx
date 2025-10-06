@@ -2,7 +2,8 @@
 'use client';
 
 import { useState, useCallback, useTransition } from 'react';
-import { fetchAndAnalyzeNews, fetchHistoricalData } from '@/app/actions';
+import axios from 'axios';
+import { fetchAndAnalyzeNews } from '@/app/actions';
 import type { NewsArticle, TickerAnalysisOutput, PriceData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
@@ -17,6 +18,55 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import InvestmentSuggestion from './investment-suggestion';
 
 type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[] }>;
+
+async function fetchHistoricalDataWithFallback(ticker: string): Promise<PriceData[]> {
+  const apiKey = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY;
+  if (!apiKey) {
+    console.error("ALPHA_VANTAGE_API_KEY is not set.");
+    return [];
+  }
+  
+  const fetchFromApi = async (symbol: string) => {
+    const aVUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${apiKey}&outputsize=compact`;
+    try {
+      const response = await axios.get(aVUrl);
+      const data = response.data;
+      
+      if (data['Note'] || data['Error Message']) {
+        console.warn('Alpha Vantage API issue:', data['Note'] || data['Error Message']);
+        return null;
+      }
+
+      const timeSeries = data['Time Series (Daily)'];
+      if (!timeSeries) {
+        return null;
+      }
+      
+      return Object.entries(timeSeries)
+        .map(([date, values]: [string, any]) => ({
+          date,
+          price: parseFloat(values['4. close']),
+        }))
+        .slice(0, 30)
+        .reverse();
+    } catch (error) {
+      console.error(`Failed to fetch historical data for ${symbol}:`, error);
+      return null;
+    }
+  };
+
+  // 1. Try the original ticker
+  let priceData = await fetchFromApi(ticker);
+  
+  // 2. If it fails and contains a dot, try the part before the dot (e.g., "700.HK" -> "700")
+  if (!priceData && ticker.includes('.')) {
+    console.log(`Fallback 1: Trying base ticker for ${ticker}`);
+    const baseTicker = ticker.split('.')[0];
+    priceData = await fetchFromApi(baseTicker);
+  }
+
+  return priceData || [];
+}
 
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
@@ -51,7 +101,6 @@ export default function MarketMojoDashboard() {
 
     const normalizedInput = input.trim().toUpperCase();
 
-    // Check cache first
     if (analysisCache[normalizedInput]) {
       const cached = analysisCache[normalizedInput];
       const articles = processAnalysisResult(cached.analysis);
@@ -84,7 +133,8 @@ export default function MarketMojoDashboard() {
         const articles = processAnalysisResult(analysisResult);
         const identifiedTicker = articles[0].ticker;
         const identifiedCurrency = articles[0].currency || 'USD';
-        const historicalData = await fetchHistoricalData(identifiedTicker);
+        
+        const historicalData = await fetchHistoricalDataWithFallback(identifiedTicker);
 
         setNewsData(articles);
         setPriceData(historicalData);
@@ -93,11 +143,9 @@ export default function MarketMojoDashboard() {
         setCurrency(identifiedCurrency);
         setNoResults(false);
 
-        // Store in cache
         setAnalysisCache(prevCache => ({
           ...prevCache,
           [normalizedInput]: { analysis: analysisResult, prices: historicalData },
-          // Also cache by the identified ticker if different
           ...(identifiedTicker !== normalizedInput && { [identifiedTicker]: { analysis: analysisResult, prices: historicalData } }),
         }));
       } else {
@@ -115,7 +163,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, [analysisCache]); // Add analysisCache to dependency array
+  }, [analysisCache]);
 
   const handleViewTicker = () => {
     if (tickerInput) {
