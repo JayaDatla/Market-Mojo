@@ -23,6 +23,7 @@ async function getCurrency(ticker: string) {
         if (!response.ok) return "USD"; // Fallback
         const text = await response.text();
         const match = text.match(/Currency in (\w+)/);
+        // If match is found, return the currency, otherwise fallback to USD
         return match ? match[1] : "USD";
     } catch (error) {
         console.error(`Failed to get currency for ${ticker}:`, error);
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
         const historicalData = await fetchLast30Days(ticker);
 
         if (historicalData.length === 0) {
-             return NextResponse.json({ error: `No historical data found for ${ticker}` }, { status: 404 });
+             return NextResponse.json({ error: `No historical data found for ticker: ${ticker}. The ticker might be invalid or delisted.` }, { status: 404 });
         }
         
         // Enrich data with currency - assuming currency is the same for all entries
