@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
 import NewsFeed from './news-feed';
-import StaticAnalysis from './static-analysis';
+import StaticAnalysis, { industryData } from './static-analysis';
 import TopCompanies from './top-companies';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -17,18 +17,15 @@ import InvestmentSuggestion from './investment-suggestion';
 import SentimentPieChart from './sentiment-pie-chart';
 import HistoricalPriceChart from './historical-price-chart';
 
-async function fetchStockData(ticker: string, currency: string): Promise<PriceData[] | { error: string }> {
-  try {
-    const response = await fetch(`/api/stock-data?ticker=${ticker}&currency=${currency}`);
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { error: errorData.error || `Failed to fetch stock data with status: ${response.status}` };
+function getStaticPriceData(ticker: string): PriceData[] | undefined {
+    const companyData = industryData[ticker.toUpperCase()];
+    if (companyData && companyData.historicalData) {
+        // The data is already in a good format, but let's ensure currency is added if missing
+        return companyData.historicalData.map(d => ({...d, currency: 'USD'}));
     }
-    return response.json();
-  } catch (error: any) {
-    return { error: error.message || 'An unknown error occurred while fetching stock data.' };
-  }
+    return undefined;
 }
+
 
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
@@ -68,40 +65,29 @@ export default function MarketMojoDashboard() {
       setTicker(input.toUpperCase());
       setCurrency(undefined);
 
-      // --- Parallel Data Fetching ---
-      const sentimentPromise = fetchAndAnalyzeNews(input);
-      const stockDataPromise = fetchStockData(input, 'USD'); // Assume USD for now, will update later
-      
-      const [sentimentResult, stockResult] = await Promise.all([sentimentPromise, stockDataPromise]);
-      // --- End Parallel Data Fetching ---
+      // --- Fetch Sentiment Data ---
+      const sentimentResult = await fetchAndAnalyzeNews(input);
+      // --- End Fetch Sentiment Data ---
 
       let finalTicker = input.toUpperCase();
-      let finalCurrency = 'USD';
-
+      
       // Process Sentiment Analysis Results
       if (sentimentResult && !sentimentResult.error && sentimentResult.analysis && sentimentResult.analysis.length > 0) {
         const articles = processAnalysisResult(sentimentResult);
         finalTicker = articles[0].ticker;
-        finalCurrency = articles[0].currency || 'USD';
+        
         setNewsData(articles);
         setRawApiData(sentimentResult.rawResponse);
         setTicker(finalTicker);
-        setCurrency(finalCurrency);
+        setCurrency(articles[0].currency || 'USD');
 
-        // If stock fetch failed with initial input, retry with the official ticker
-        if ('error' in stockResult) {
-            const finalStockResult = await fetchStockData(finalTicker, finalCurrency);
-            if (!('error' in finalStockResult)) {
-                setPriceData(finalStockResult);
-            } else {
-                 toast({
-                    variant: 'destructive',
-                    title: 'Historical Data Failed',
-                    description: finalStockResult.error,
-                });
-            }
+        // Use static price data
+        const staticData = getStaticPriceData(finalTicker);
+        if (staticData) {
+            setPriceData(staticData);
         } else {
-             setPriceData(stockResult);
+            // No static data found, chart will show its empty state
+            setPriceData([]); 
         }
 
       } else {
@@ -112,6 +98,11 @@ export default function MarketMojoDashboard() {
           title: 'Sentiment Analysis Failed',
           description: sentimentResult?.error || 'No news articles could be analyzed for this ticker.',
         });
+        // Also try to get static data even if sentiment fails
+        const staticData = getStaticPriceData(input.toUpperCase());
+        if (staticData) {
+            setPriceData(staticData);
+        }
       }
     });
   };
@@ -180,7 +171,7 @@ export default function MarketMojoDashboard() {
         ) : showDashboard ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              {newsData.length > 0 ? (
+              {newsData.length > 0 || priceData.length > 0 ? (
                 <>
                   <HistoricalPriceChart priceData={priceData} sentimentScore={averageSentiment} currency={currency} />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

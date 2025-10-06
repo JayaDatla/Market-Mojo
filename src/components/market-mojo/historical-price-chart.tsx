@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AreaChart, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { AreaChart, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import type { PriceData } from '@/types';
 import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { DropShadowFilter } from '@/components/ui/filters';
@@ -82,7 +82,7 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, curren
                     <div className="h-[250px] flex items-center justify-center bg-background/50 rounded-md">
                         <div className="text-center text-muted-foreground">
                             <p>No historical price data available for this ticker.</p>
-                            <p className="text-xs">The scraper might be blocked or the ticker may not be on Yahoo Finance.</p>
+                            <p className="text-xs">This feature is only available for the top 10 companies.</p>
                         </div>
                     </div>
                 </CardContent>
