@@ -33,12 +33,13 @@ async function fetchHistoricalDataWithFallback(ticker: string): Promise<PriceDat
       const data = response.data;
       
       if (data['Note'] || data['Error Message']) {
-        console.warn('Alpha Vantage API issue:', data['Note'] || data['Error Message']);
+        console.warn(`Alpha Vantage API issue for ${symbol}:`, data['Note'] || data['Error Message']);
         return null;
       }
 
       const timeSeries = data['Time Series (Daily)'];
       if (!timeSeries) {
+        console.error(`No time series data found for ticker: ${symbol}`, data);
         return null;
       }
       
@@ -163,7 +164,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, [analysisCache]);
+  }, [analysisCache, handleAnalysis]);
 
   const handleViewTicker = () => {
     if (tickerInput) {
