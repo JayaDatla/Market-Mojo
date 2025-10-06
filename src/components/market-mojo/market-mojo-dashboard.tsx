@@ -62,24 +62,19 @@ export default function MarketMojoDashboard() {
       setTicker(input.toUpperCase());
       setCurrency(undefined);
 
+      // We still need the sentiment analysis to get company info
       const sentimentResult = await fetchAndAnalyzeNews(input);
       
       let finalTicker = input.toUpperCase();
-      let finalCurrency = 'USD';
-      let finalCompanyCountry = '';
-      let isInputTicker = false; // Default to false
 
       if (sentimentResult && !sentimentResult.error && sentimentResult.analysis && sentimentResult.analysis.length > 0) {
         const articles = processAnalysisResult(sentimentResult);
-        finalTicker = articles[0].ticker;
-        finalCurrency = articles[0].currency || 'USD';
-        finalCompanyCountry = articles[0].companyCountry;
-        isInputTicker = articles[0].isTicker; // Get the new flag from the AI response
+        finalTicker = articles[0].ticker; // Use the ticker resolved by the AI
 
         setNewsData(articles);
         setRawApiData(sentimentResult.rawResponse);
         setTicker(finalTicker);
-        setCurrency(finalCurrency);
+        setCurrency(articles[0].currency || 'USD');
       } else {
         setRawApiData(sentimentResult);
         setTicker(input.toUpperCase());
@@ -88,36 +83,32 @@ export default function MarketMojoDashboard() {
           title: 'Sentiment Analysis Failed',
           description: sentimentResult?.error || 'No news articles could be analyzed for this ticker.',
         });
+        // Even if sentiment fails, we can still try to get price data
       }
 
-      if (!finalCompanyCountry) {
-        if (!sentimentResult.error) {
-            toast({
-                variant: 'destructive',
-                title: 'Missing Data',
-                description: `Could not determine country of origin for ${finalTicker}. Historical data may be unavailable.`,
-            });
-        }
-        setPriceData([]);
-        return;
-      }
-
+      // Fetch historical data using the new, simpler API
       try {
-          // Pass the original input and the new isTicker flag to the API route
-          const historyResponse = await fetch(`/api/stock-data?ticker=${input}&companyCountry=${finalCompanyCountry}&isTicker=${isInputTicker}`);
+          // The new API just needs the user's original input string
+          const historyResponse = await fetch(`/api/stock-data?ticker=${input}`);
+          
           if (!historyResponse.ok) {
               const err = await historyResponse.json();
               throw new Error(err.error || 'Unknown error from history API');
           }
+          
           const historyResult = await historyResponse.json();
 
           if (historyResult && historyResult.length > 0) {
               setPriceData(historyResult.map((d: any) => ({ date: d.date.split('T')[0], close: d.close })));
+              // Set currency from historical data if available
+              if (historyResult[0].currency) {
+                  setCurrency(historyResult[0].currency);
+              }
           } else {
               throw new Error("No data returned from API.");
           }
       } catch (e: any) {
-          console.warn(`Dynamic historical data fetch failed for ${finalTicker}:`, e.message);
+          console.warn(`Dynamic historical data fetch failed for ${input}:`, e.message);
           const staticData = getStaticPriceData(finalTicker);
           if (staticData) {
               setPriceData(staticData);
@@ -128,11 +119,11 @@ export default function MarketMojoDashboard() {
               });
           } else {
               setPriceData([]);
-              if (!sentimentResult.error) {
+              if (!sentimentResult.error) { // Only show this if sentiment didn't also fail
                   toast({
                       variant: 'default',
                       title: 'Historical Data Notice',
-                      description: `Could not fetch historical price data for ${finalTicker}.`,
+                      description: `Could not fetch historical price data for ${input}.`,
                   });
               }
           }
