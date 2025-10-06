@@ -9,10 +9,10 @@ const PERPLEXITY_MODEL = "sonar";
 const generatePrompt = (tickerOrName: string) => `
 You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
 
-The user has provided the following identifier: "${tickerOrName}". First, identify the correct company and its primary stock exchange. Then, provide the stock ticker for that specific exchange (e.g., for Tata Motors, use 'TATAMOTORS.BSE' for the Bombay Stock Exchange, not 'TTM'). Then, search the web to find the top 5 most recent news articles for it.
+The user has provided the following identifier: "${tickerOrName}". First, identify the correct company. Then, determine its primary US stock ticker if available (e.g., 'TM' for Toyota on NYSE). If no US ticker exists, provide the ticker for its main local stock exchange (e.g., 'TATAMOTORS.BSE' for Tata Motors on BSE). After identifying the correct ticker, search the web for the top 5 most recent news articles for it.
 
 Strictly analyze these news snippets for their immediate impact on investor perception and stock price, ignoring all non-financial context.
-For each article, provide a one-sentence summary, determine if the sentiment is "Positive", "Negative", or "Neutral", provide a sentiment_score from -1.0 to 1.0, and the three-letter currency code for the stock's primary exchange (e.g., "USD", "INR", "EUR").
+For each article, provide a one-sentence summary, determine if the sentiment is "Positive", "Negative", or "Neutral", provide a sentiment_score from -1.0 to 1.0, the identified ticker, and the three-letter currency code for the stock's primary exchange (e.g., "JPY", "INR", "USD").
 
 Your response MUST be a single, valid JSON array of objects, and nothing else. Do not include any introductory text, closing text, or markdown formatting. The JSON should have the following structure:
 [
