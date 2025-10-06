@@ -2,14 +2,12 @@
 import {NextRequest, NextResponse} from 'next/server';
 import puppeteer from 'puppeteer';
 
-// Convert days ago to UNIX timestamps
 function getUnixTimestamps(daysAgo: number): { start: number; end: number } {
   const end = Math.floor(Date.now() / 1000);
   const start = end - daysAgo * 24 * 3600;
   return { start, end };
 }
 
-// Extensive mapping for currency suffixes used by Yahoo Finance tickers
 const currencySuffixes: { [currency: string]: string } = {
   USD: "",
   CAD: ".TO",
@@ -47,7 +45,6 @@ const currencySuffixes: { [currency: string]: string } = {
   ILS: ".TA",
 };
 
-// Mapping from country to primary currency
 const countryPrimaryCurrency: { [country: string]: string } = {
   USA: "USD",
   US: "USD",
@@ -123,7 +120,7 @@ const countryPrimaryCurrency: { [country: string]: string } = {
   ID: "IDR",
 };
 
-// Map ambiguous or ADR tickers & company names + origin to primary Yahoo ticker
+// Map known ambiguous tickers or company names + origin to primary ticker
 const tickerCountryToPrimaryTicker: { [key: string]: string } = {
   "ttm|india": "TATAMOTORS.NS",
   "tata motors|india": "TATAMOTORS.NS",
@@ -135,39 +132,23 @@ const tickerCountryToPrimaryTicker: { [key: string]: string } = {
   "toyota motor|japan": "7203.T", // common variation
 };
 
-// Normalize strings for matching
 function normalizeString(str: string): string {
   return str.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-/**
- * Resolves the proper Yahoo Finance ticker symbol based on the user input and origin country.
- * Accepts either a ticker or a company name input.
- */
 function resolveTicker(input: string, originCountry: string, isTicker: boolean): string {
   const key = `${normalizeString(input)}|${normalizeString(originCountry)}`;
-  
-  if (key in tickerCountryToPrimaryTicker) {
-    return tickerCountryToPrimaryTicker[key];
-  }
+  if (key in tickerCountryToPrimaryTicker) return tickerCountryToPrimaryTicker[key];
 
+  const currency = countryPrimaryCurrency[originCountry] ?? "USD";
   if (isTicker) {
-    const currency = countryPrimaryCurrency[originCountry] ?? "USD";
-    if (input.includes(".")) return input; 
-    const suffix = currencySuffixes[currency] ?? "";
-    return input.toUpperCase() + suffix;
+    if (input.includes(".")) return input;
+    return input + (currencySuffixes[currency] ?? "");
   }
-
-  // Fallback for company names not in the map - may not match Yahoo's expected ticker
   return input;
 }
 
-
-/**
- * Fetch historical data from Yahoo Finance using Puppeteer,
- * resolving ticker dynamically based on input type and origin country.
- */
-export async function fetchHistoricalDataDynamic(
+export async function fetchHistoricalData(
   input: string,
   originCountry: string,
   isTicker: boolean = false,
@@ -184,33 +165,40 @@ export async function fetchHistoricalDataDynamic(
   const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
   const page = await browser.newPage();
 
+  // Use a real user agent and set viewport to avoid bot detection
   await page.setUserAgent(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
       "(KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
   );
+  await page.setViewport({ width: 1366, height: 768 });
 
   try {
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 45000 });
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
     await page.waitForSelector('table[data-test="historical-prices"] tbody tr', { timeout: 20000 });
 
-    const rows = await page.$$eval('table[data-test="historical-prices"] tbody tr', trs =>
-      trs.map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim()))
+    const rows = await page.$$eval('table[data-test="historical-prices"] tbody tr', (trs) =>
+      trs.map((tr) => Array.from(tr.querySelectorAll("td")).map((td) => td.innerText.trim()))
     );
+
+    if (!rows.length) {
+      await page.screenshot({ path: "debug_no_rows.png", fullPage: true });
+      throw new Error("No historical price rows found - page structure may have changed.");
+    }
 
     await browser.close();
 
     const parseNum = (str: string): number => {
-      const n = parseFloat(str.replace(/,/g, "").replace(/-/g, ""));
-      return isNaN(n) ? NaN : n;
+      const num = parseFloat(str.replace(/,/g, "").replace(/-/g, ""));
+      return isNaN(num) ? NaN : num;
     };
 
     return rows
-      .filter(cols => cols.length === 7)
-      .map(cols => ({
+      .filter((cols) => cols.length === 7)
+      .map((cols) => ({
         date: new Date(cols[0]).toISOString().split('T')[0], // Standardize date format
         close: parseNum(cols[4]),
       }))
-      .filter(entry => !isNaN(entry.close) && entry.close > 0);
+      .filter((entry) => !isNaN(entry.close) && entry.close > 0);
   } catch (error) {
     await browser.close();
     throw new Error(`Failed to fetch historical data for ${ticker} (${originCountry}): ${error}`);
@@ -236,7 +224,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // We use the original ticker from the AI as the `input` for our dynamic fetch function.
-    const history = await fetchHistoricalDataDynamic(ticker, companyCountry, isTicker);
+    const history = await fetchHistoricalData(ticker, companyCountry, isTicker);
     return NextResponse.json(history);
   } catch (error: any) {
     console.error(error.message);
