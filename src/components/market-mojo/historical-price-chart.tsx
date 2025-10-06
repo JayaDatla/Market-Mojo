@@ -82,7 +82,7 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, curren
                     <div className="h-[250px] flex items-center justify-center bg-background/50 rounded-md">
                         <div className="text-center text-muted-foreground">
                             <p>No historical price data available for this ticker.</p>
-                            <p className="text-xs">This feature is only available for the top 10 companies.</p>
+                            <p className="text-xs">This feature is currently available for select tickers.</p>
                         </div>
                     </div>
                 </CardContent>
@@ -124,6 +124,7 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, curren
                                     boxShadow: "0 4px 12px hsla(0, 0%, 0%, 0.1)"
                                 }}
                                 cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '3 3' }}
+                                 formatter={(value: number, name: string) => [name === 'price' ? value.toFixed(2) : value.toFixed(2), name === 'price' ? 'Price' : 'Trend']}
                             />
                             <Line
                                 type="monotone"

@@ -19,13 +19,8 @@ import HistoricalPriceChart from './historical-price-chart';
 
 function getStaticPriceData(ticker: string): PriceData[] | undefined {
     const companyData = industryData[ticker.toUpperCase()];
-    if (companyData && companyData.historicalData) {
-        // The data is already in a good format, but let's ensure currency is added if missing
-        return companyData.historicalData.map(d => ({...d, currency: 'USD'}));
-    }
-    return undefined;
+    return companyData?.historicalData;
 }
-
 
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
@@ -65,9 +60,25 @@ export default function MarketMojoDashboard() {
       setTicker(input.toUpperCase());
       setCurrency(undefined);
 
-      // --- Fetch Sentiment Data ---
-      const sentimentResult = await fetchAndAnalyzeNews(input);
-      // --- End Fetch Sentiment Data ---
+      // --- Fetch Sentiment and Historical Data in Parallel ---
+      const sentimentPromise = fetchAndAnalyzeNews(input);
+      const historyPromise = fetch(`/api/stock-data?ticker=${input.toUpperCase()}`).then(res => {
+          if (!res.ok) {
+              // If the API fails, it will return a JSON with an error, so we parse it.
+              return res.json().then(err => { throw new Error(err.error) });
+          }
+          return res.json();
+      }).catch(e => {
+          // Network errors or other issues with fetch itself
+          console.warn(`Historical data fetch failed for ${input}:`, e.message);
+          return null; // Return null to indicate failure
+      });
+
+      const [sentimentResult, historyResult] = await Promise.all([
+          sentimentPromise,
+          historyPromise
+      ]);
+      // --- End Parallel Fetch ---
 
       let finalTicker = input.toUpperCase();
       
@@ -80,16 +91,6 @@ export default function MarketMojoDashboard() {
         setRawApiData(sentimentResult.rawResponse);
         setTicker(finalTicker);
         setCurrency(articles[0].currency || 'USD');
-
-        // Use static price data
-        const staticData = getStaticPriceData(finalTicker);
-        if (staticData) {
-            setPriceData(staticData);
-        } else {
-            // No static data found, chart will show its empty state
-            setPriceData([]); 
-        }
-
       } else {
         setRawApiData(sentimentResult);
         setTicker(input.toUpperCase());
@@ -98,10 +99,26 @@ export default function MarketMojoDashboard() {
           title: 'Sentiment Analysis Failed',
           description: sentimentResult?.error || 'No news articles could be analyzed for this ticker.',
         });
-        // Also try to get static data even if sentiment fails
-        const staticData = getStaticPriceData(input.toUpperCase());
+      }
+
+      // Process Historical Data Results
+      if (historyResult && historyResult.length > 0) {
+        setPriceData(historyResult);
+      } else {
+        // Fallback to static data if dynamic fetch fails or returns no data
+        const staticData = getStaticPriceData(finalTicker);
         if (staticData) {
             setPriceData(staticData);
+            console.log(`Using static price data for ${finalTicker}.`);
+        } else {
+            setPriceData([]);
+            if(hasSearched && !sentimentResult.error) { // Only toast if it's not the initial state and sentiment didn't also fail
+                 toast({
+                    variant: 'default',
+                    title: 'Historical Data Notice',
+                    description: `Could not fetch historical price data for ${finalTicker}.`,
+                });
+            }
         }
       }
     });

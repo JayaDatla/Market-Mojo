@@ -31,7 +31,7 @@ export const industryData: IndustryData = {
     industry: 'Consumer Electronics & Software',
     analysis: 'Apple maintains a powerful ecosystem with high brand loyalty. Key drivers include iPhone sales, services growth (App Store, iCloud), and expansion into new product categories like augmented reality.',
     competitors: ['Microsoft (MSFT)', 'Google (GOOGL)', 'Samsung (SSNLF)'],
-    historicalData: [{"date":"2024-04-29","close":173.50},{"date":"2024-04-30","close":170.33},{"date":"2024-05-01","close":169.30},{"date":"2024-05-02","close":173.03},{"date":"2024-05-03","close":183.38},{"date":"2024-05-06","close":181.71},{"date":"2024-05-07","close":182.40},{"date":"2024-05-08","close":182.74},{"date":"2024-05-09","close":184.57},{"date":"2024-05-10","close":183.05},{"date":"2024-05-13","close":186.28},{"date":"2024-05-14","close":187.43},{"date":"2024-05-15","close":189.72},{"date":"2024-05-16","close":189.84},{"date":"2024-05-17","close":189.87},{"date":"2024-05-20","close":191.04},{"date":"2024-05-21","close":192.35},{"date":"2024-05-22","close":190.90},{"date":"2_024-05-23","close":189.95},{"date":"2024-05-24","close":190.58}],
+    historicalData: [{"date":"2024-04-29","close":173.50},{"date":"2024-04-30","close":170.33},{"date":"2024-05-01","close":169.30},{"date":"2024-05-02","close":173.03},{"date":"2024-05-03","close":183.38},{"date":"2024-05-06","close":181.71},{"date":"2024-05-07","close":182.40},{"date":"2024-05-08","close":182.74},{"date":"2024-05-09","close":184.57},{"date":"2024-05-10","close":183.05},{"date":"2024-05-13","close":186.28},{"date":"2024-05-14","close":187.43},{"date":"2024-05-15","close":189.72},{"date":"2024-05-16","close":189.84},{"date":"2024-05-17","close":189.87},{"date":"2024-05-20","close":191.04},{"date":"2024-05-21","close":192.35},{"date":"2024-05-22","close":190.90},{"date":"2024-05-23","close":189.95},{"date":"2024-05-24","close":190.58}],
   },
   'MSFT': {
     industry: 'Software & Cloud Computing',
@@ -128,5 +128,3 @@ export default function StaticAnalysis({ ticker }: StaticAnalysisProps) {
     </Card>
   );
 }
-
-    
