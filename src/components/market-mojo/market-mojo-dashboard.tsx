@@ -9,7 +9,7 @@ import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
 import SentimentCharts from './sentiment-charts';
 import NewsFeed from './news-feed';
-import StaticAnalysis, { industryData } from './static-analysis';
+import StaticAnalysis from './static-analysis';
 import TopCompanies from './top-companies';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -17,6 +17,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import InvestmentSuggestion from './investment-suggestion';
 
 type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[], currency: string }>;
+type StockDataCache = Record<string, { historicalData: PriceData[], currency: string, ticker: string }>;
 
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
@@ -25,6 +26,8 @@ export default function MarketMojoDashboard() {
   const [priceData, setPriceData] = useState<PriceData[]>([]);
   const [rawApiData, setRawApiData] = useState<any>(null);
   const [analysisCache, setAnalysisCache] = useState<AnalysisCache>({});
+  const [stockDataCache, setStockDataCache] = useState<StockDataCache>({});
+
   const [currency, setCurrency] = useState<string>('USD');
   const [isAnalyzing, startTransition] = useTransition();
   const [hasSearched, setHasSearched] = useState(false);
@@ -46,6 +49,32 @@ export default function MarketMojoDashboard() {
     }));
   };
 
+  const fetchHistoricalData = async (ticker: string) => {
+    const normalizedTicker = ticker.trim().toUpperCase();
+    if (stockDataCache[normalizedTicker]) {
+      toast({
+        title: 'Loaded Price Data from Cache',
+        description: `Displaying cached price chart for ${normalizedTicker}.`,
+      });
+      return stockDataCache[normalizedTicker];
+    }
+    
+    const response = await fetch(`/api/stock-data?query=${ticker}`);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        console.error(`Failed to fetch historical data for ${ticker}:`, errorData.error || response.statusText);
+        toast({
+            variant: "destructive",
+            title: 'Price Data Unavailable',
+            description: `Could not fetch historical price data for ${ticker}.`
+        });
+        return { historicalData: [], currency: 'USD', ticker: ticker };
+    }
+    const data = await response.json();
+    setStockDataCache(prev => ({...prev, [normalizedTicker]: data, [data.ticker]: data }));
+    return data;
+  }
+
   const handleAnalysis = (input: string) => {
     if (!input) return;
 
@@ -58,65 +87,66 @@ export default function MarketMojoDashboard() {
       setPriceData([]);
       setRawApiData(null);
       setTicker(input);
+      setCurrency('USD');
 
-      if (analysisCache[normalizedInput]) {
-        const cached = analysisCache[normalizedInput];
-        const articles = processAnalysisResult(cached.analysis);
-        if (articles.length > 0) {
-            setNewsData(articles);
-            setPriceData(cached.prices);
-            setRawApiData(cached.analysis.rawResponse);
-            setTicker(articles[0]?.ticker || normalizedInput);
-            setCurrency(cached.currency);
-            setNoResults(false);
-            toast({
-                title: 'Loaded from Cache',
-                description: `Displaying cached analysis for ${normalizedInput}.`,
-            });
-            return;
-        }
+      if (analysisCache[normalizedInput] && stockDataCache[normalizedInput]) {
+        const cachedAnalysis = analysisCache[normalizedInput];
+        const cachedStockData = stockDataCache[normalizedInput];
+
+        const articles = processAnalysisResult(cachedAnalysis.analysis);
+        setNewsData(articles);
+        setPriceData(cachedStockData.historicalData);
+        setRawApiData(cachedAnalysis.analysis.rawResponse);
+        setTicker(cachedStockData.ticker);
+        setCurrency(cachedStockData.currency);
+        setNoResults(articles.length === 0);
+        toast({
+            title: 'Loaded from Cache',
+            description: `Displaying cached results for ${normalizedInput}.`,
+        });
+        return;
       }
+      
+      const [analysisResult, stockDataResult] = await Promise.all([
+        analysisCache[normalizedInput] 
+            ? Promise.resolve(analysisCache[normalizedInput].analysis) 
+            : fetchAndAnalyzeNews(input),
+        stockDataCache[normalizedInput]
+            ? Promise.resolve(stockDataCache[normalizedInput])
+            : fetchHistoricalData(input)
+      ]);
 
-      const analysisResult = await fetchAndAnalyzeNews(input);
 
       if (analysisResult && !analysisResult.error && analysisResult.analysis && analysisResult.analysis.length > 0) {
         const articles = processAnalysisResult(analysisResult);
-        const identifiedTicker = articles[0].ticker;
-        
-        // Use static historical data if available
-        const staticData = industryData[identifiedTicker];
-        const historicalData = staticData?.historicalData || [];
-        const fetchedCurrency = articles[0].currency || 'USD';
-
-        if (historicalData.length === 0) {
-            toast({
-                variant: "destructive",
-                title: 'Price Data Unavailable',
-                description: `Displaying analysis for ${identifiedTicker}, but live price data is not available for this ticker.`
-            });
-        }
-
         setNewsData(articles);
-        setPriceData(historicalData);
         setRawApiData(analysisResult.rawResponse);
-        setTicker(identifiedTicker);
-        setCurrency(fetchedCurrency);
-        setNoResults(false);
+        setTicker(articles[0].ticker);
         
-        setAnalysisCache(prevCache => ({
-          ...prevCache,
-          [normalizedInput]: { analysis: analysisResult, prices: historicalData, currency: fetchedCurrency },
-          ...(identifiedTicker !== normalizedInput && { [identifiedTicker]: { analysis: analysisResult, prices: historicalData, currency: fetchedCurrency } }),
-        }));
+        if (!analysisCache[normalizedInput]) {
+          setAnalysisCache(prev => ({
+            ...prev,
+            [normalizedInput]: { analysis: analysisResult, prices: [], currency: '' }, // prices/currency are handled by stockData
+            ...(articles[0].ticker !== normalizedInput && { [articles[0].ticker]: { analysis: analysisResult, prices: [], currency: '' } }),
+          }));
+        }
       } else {
         setRawApiData(analysisResult);
         setNoResults(true);
-        setPriceData([]);
         toast({
           variant: 'destructive',
-          title: 'Analysis Failed',
+          title: 'Sentiment Analysis Failed',
           description: analysisResult?.error || 'No news articles could be analyzed for this ticker.',
         });
+      }
+
+      if (stockDataResult && stockDataResult.historicalData.length > 0) {
+        setPriceData(stockDataResult.historicalData);
+        setCurrency(stockDataResult.currency);
+        setTicker(stockDataResult.ticker); // Can be a more specific ticker
+      } else {
+        setPriceData([]);
+        // Error toast is shown in fetchHistoricalData
       }
     });
   };
@@ -124,7 +154,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, []);
+  }, [handleAnalysis]);
 
   const handleViewTicker = () => {
     if (tickerInput) {
@@ -132,11 +162,11 @@ export default function MarketMojoDashboard() {
     }
   };
   
-  const displayTicker = (newsData.length > 0 ? newsData[0].ticker : ticker).toUpperCase();
+  const displayTicker = ticker.toUpperCase();
   
   const isLoading = isAnalyzing;
-  const showDashboard = hasSearched && !isLoading && newsData.length > 0;
-  const showNoResults = noResults && hasSearched && !isLoading && newsData.length === 0;
+  const showDashboard = hasSearched && !isLoading && (newsData.length > 0 || priceData.length > 0);
+  const showNoResults = hasSearched && !isLoading && newsData.length === 0 && priceData.length === 0;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -179,14 +209,14 @@ export default function MarketMojoDashboard() {
         {isLoading && hasSearched ? (
           <div className="text-center py-16">
             <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
-            <p className="text-muted-foreground mt-4">Analyzing sentiment for {tickerInput}...</p>
+            <p className="text-muted-foreground mt-4">Analyzing {tickerInput}...</p>
           </div>
         ) : showDashboard ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               <SentimentCharts newsData={newsData} priceData={priceData} currency={currency} />
-              <InvestmentSuggestion newsData={newsData} priceData={priceData} />
-              <NewsFeed newsData={newsData.slice(0, 5)} />
+              {newsData.length > 0 && <InvestmentSuggestion newsData={newsData} priceData={priceData} />}
+              {newsData.length > 0 && <NewsFeed newsData={newsData.slice(0, 5)} />}
             </div>
             <div className="space-y-8">
               <div className="sticky top-24 space-y-8">
@@ -200,9 +230,9 @@ export default function MarketMojoDashboard() {
                 <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-medium text-foreground">No Analysis Found</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    Could not perform sentiment analysis for <span className="font-semibold text-foreground">{tickerInput}</span>.
+                    Could not retrieve data for <span className="font-semibold text-foreground">{tickerInput}</span>.
                 </p>
-                 <p className="text-sm text-muted-foreground">This could be due to a lack of recent news or an issue with the analysis service.</p>
+                 <p className="text-sm text-muted-foreground">This could be due to a lack of recent news or an issue with the data services.</p>
                  <div className="mt-8">
                     <TopCompanies onCompanySelect={handleCompanySelect} />
                  </div>
