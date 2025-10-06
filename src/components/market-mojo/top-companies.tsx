@@ -19,13 +19,14 @@ const topCompanies = [
   { name: 'Broadcom', ticker: 'AVGO' },
   { name: 'JPMorgan Chase', ticker: 'JPM' },
   { name: 'Tesla', ticker: 'TSLA' },
+  { name: 'Roche', ticker: 'ROG' },
 ];
 
 export default function TopCompanies({ onCompanySelect }: TopCompaniesProps) {
   return (
     <Card className="bg-card border-border/50">
       <CardHeader>
-        <CardTitle>Top 10 Global Companies by Market Cap</CardTitle>
+        <CardTitle>Top Global Companies</CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-muted-foreground mb-6">Select a company to begin sentiment analysis.</p>
@@ -46,3 +47,5 @@ export default function TopCompanies({ onCompanySelect }: TopCompaniesProps) {
     </Card>
   );
 }
+
+    
