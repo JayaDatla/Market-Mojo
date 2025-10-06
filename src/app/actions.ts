@@ -23,21 +23,23 @@ Your tasks are:
 5.  **Analyze News**: Search the web for the top 5 most recent and credible news articles about the company from the **last 30 days**. Focus on financial performance, product launches, or market-moving events.
 6.  **Extract Financial Sentiment**: For each article, provide a one-sentence summary of its financial impact, a sentiment classification ("Positive", "Negative", or "Neutral"), and a sentiment score from -1.0 to 1.0.
 
-**Output Format**: You MUST return the data as a single, valid JSON array of objects. Do not include any text, explanations, or markdown formatting outside of the JSON array. The structure must be exactly as follows:
+**Output Format**: You MUST return the data as a single, valid JSON object. Do not include any text, explanations, or markdown formatting outside of the JSON object. The object must contain a single key "analysis" which holds an array of article objects. The structure must be exactly as follows:
 
-[
-  {
-    "title": "...",
-    "url": "...",
-    "summary": "...",
-    "sentiment": "Positive" | "Negative" | "Neutral",
-    "sentiment_score": ...,
-    "ticker": "...",
-    "currency": "...",
-    "companyCountry": "...",
-    "isTicker": true | false
-  }
-]
+{
+  "analysis": [
+    {
+      "title": "...",
+      "url": "...",
+      "summary": "...",
+      "sentiment": "Positive" | "Negative" | "Neutral",
+      "sentiment_score": ...,
+      "ticker": "...",
+      "currency": "...",
+      "companyCountry": "...",
+      "isTicker": true | false
+    }
+  ]
+}
 `;
 
 
@@ -92,11 +94,11 @@ export async function fetchAndAnalyzeNews(
         return result;
     }
     
-    const jsonRegex = /(?:```json\s*)?(\[.*\])/s;
+    const jsonRegex = /(?:```json\s*)?(\{.*?\})/s;
     const match = content.match(jsonRegex);
 
     if (!match || !match[1]) {
-        console.error("No JSON array found in the API response:", content);
+        console.error("No JSON object found in the API response:", content);
         const result: TickerAnalysisOutput = { error: "Failed to find valid JSON in the API's response.", rawResponse: content };
         return result;
     }
@@ -104,11 +106,12 @@ export async function fetchAndAnalyzeNews(
     const cleanedContent = match[1];
 
     try {
-      const analysis: ArticleAnalysis[] = JSON.parse(cleanedContent);
+      const parsedJson: { analysis: ArticleAnalysis[] } = JSON.parse(cleanedContent);
+      const analysis = parsedJson.analysis;
       const result: TickerAnalysisOutput = { analysis, rawResponse: data };
       
       // If analysis is successful and contains data, cache it.
-      if (analysis.length > 0 && analysis[0].ticker) {
+      if (analysis && analysis.length > 0 && analysis[0].ticker) {
         // Use the identified ticker from the response for caching consistency.
         const finalTicker = analysis[0].ticker.toUpperCase();
         analysisCache.set(finalTicker, { timestamp: Date.now(), data: result });
