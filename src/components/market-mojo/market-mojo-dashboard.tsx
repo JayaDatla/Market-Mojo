@@ -23,17 +23,19 @@ import TickerSelector from './ticker-selector';
 // Helper function to calculate a Simple Moving Average (SMA)
 const calculateMovingAverage = (data: PriceData[], windowSize: number): number[] => {
   const averages: number[] = [];
-  if (data.length < windowSize) return [];
+  if (!data || data.length < windowSize) return [];
   
   // First, calculate the sum of the initial window
   let sum = 0;
   for (let i = 0; i < windowSize; i++) {
+    if (typeof data[i]?.close !== 'number') return []; // Data integrity check
     sum += data[i].close;
   }
   averages.push(sum / windowSize);
 
   // Then, use a sliding window for efficiency
   for (let i = windowSize; i < data.length; i++) {
+     if (typeof data[i - windowSize]?.close !== 'number' || typeof data[i]?.close !== 'number') return []; // Data integrity check
     sum = sum - data[i - windowSize].close + data[i].close;
     averages.push(sum / windowSize);
   }
@@ -44,6 +46,7 @@ const calculateMovingAverage = (data: PriceData[], windowSize: number): number[]
 
 // New trend calculation logic using moving averages
 const calculateTrend = (data: PriceData[]): 'Up' | 'Down' | 'Neutral' => {
+    if (!data) return 'Neutral';
     const n = data.length;
     const shortTermWindow = 7;
     const longTermWindow = 25;
@@ -164,7 +167,13 @@ export default function MarketMojoDashboard() {
         });
       }
 
-      setPriceData(chartData);
+      if (Array.isArray(chartData)) {
+          setPriceData(chartData);
+      } else {
+          setPriceData([]);
+          console.error("fetchChartData did not return an array:", chartData);
+      }
+      
       if (chartData.length === 0 && ticker) {
          toast({
             variant: 'default',
@@ -177,8 +186,9 @@ export default function MarketMojoDashboard() {
   };
   
   const handleTickerSelection = (ticker: Ticker) => {
+    setUserInput(ticker.companyName || userInput);
     // A ticker has been selected, now trigger the full analysis with it
-    handleAnalysis(userInput, ticker);
+    handleAnalysis(ticker.companyName || userInput, ticker);
   };
 
 
@@ -198,9 +208,9 @@ export default function MarketMojoDashboard() {
   
   const showSentimentAnalysis = analysisResult && analysisResult.articles && analysisResult.articles.length > 0;
   const showDisambiguation = potentialTickers.length > 1;
-  const showPriceChart = selectedTicker && priceData.length > 0;
+  const showPriceChart = selectedTicker && priceData && priceData.length > 0;
   const showNoResults = hasSearched && !isLoading && !showDisambiguation && !showSentimentAnalysis;
-  const currency = priceData.length > 0 ? priceData[0].currency : selectedTicker?.currency || 'USD';
+  const currency = priceData && priceData.length > 0 ? priceData[0].currency : selectedTicker?.currency || 'USD';
 
 
   return (
