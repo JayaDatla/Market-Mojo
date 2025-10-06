@@ -59,7 +59,12 @@ export const industryData: { [key: string]: { industry: string; analysis: string
     analysis: 'JPMorgan Chase is the largest bank in the United States. Its performance is linked to interest rates, economic growth, and the health of global financial markets. It operates across investment banking, consumer banking, and asset management.',
     competitors: ['Bank of America (BAC)', 'Goldman Sachs (GS)', 'Morgan Stanley (MS)'],
   },
-  'VW': {
+  'TM': {
+    industry: 'Automotive',
+    analysis: 'Toyota is one of the world\'s largest automakers, known for its reliability and leadership in hybrid vehicles. It is now making a major push into the EV market, leveraging its manufacturing prowess.',
+    competitors: ['Volkswagen (VWAGY)', 'General Motors (GM)', 'Tesla (TSLA)'],
+  },
+  'VWAGY': {
     industry: 'Automotive',
     analysis: 'One of the world\'s largest automakers, Volkswagen Group is aggressively transitioning to electric vehicles to compete with new market entrants. Its performance is heavily linked to global auto sales and its success in the EV race.',
     competitors: ['Toyota (TM)', 'General Motors (GM)', 'Stellantis (STLA)'],
@@ -69,10 +74,15 @@ export const industryData: { [key: string]: { industry: string; analysis: string
     analysis: 'A major integrated energy company, Shell is navigating the global transition towards lower-carbon energy. Its stock is influenced by oil prices, geopolitical events, and its strategic investments in renewable energy sources.',
     competitors: ['ExxonMobil (XOM)', 'Chevron (CVX)', 'BP (BP)'],
   },
-  '700.HK': {
+  'TCEHY': {
     industry: 'Internet & Technology',
     analysis: 'Tencent Holdings is a Chinese multinational conglomerate with subsidiaries in entertainment, AI, and other technology. Its performance is impacted by domestic regulatory changes and its vast portfolio of games and social media.',
     competitors: ['Alibaba (BABA)', 'ByteDance', 'NetEase (NTES)'],
+  },
+  'TATAMOTORS': {
+    industry: 'Automotive',
+    analysis: 'An Indian multinational automotive manufacturing company, Tata Motors is a leading producer of cars, trucks, and buses. It owns Jaguar Land Rover and is making significant strides in the Indian electric vehicle market.',
+    competitors: ['Mahindra & Mahindra (M&M.NS)', 'Maruti Suzuki (MARUTI.NS)', 'Hyundai'],
   }
 };
 
