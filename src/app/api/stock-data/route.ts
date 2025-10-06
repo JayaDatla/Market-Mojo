@@ -127,7 +127,7 @@ async function fetchHistoricalData(ticker: string) {
     }
   }
 
-  if (data.length === <strong>0</strong>) {
+  if (data.length === 0) {
     throw new Error(`No historical data found for '${ticker}'`);
   }
 
