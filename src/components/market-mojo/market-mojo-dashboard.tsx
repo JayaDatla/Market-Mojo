@@ -15,9 +15,25 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import InvestmentSuggestion from './investment-suggestion';
-import { industryData } from './static-analysis';
 
 type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[], currency: string }>;
+
+async function fetchHistoricalData(ticker: string): Promise<{ historicalData: PriceData[], currency: string }> {
+    try {
+        const response = await fetch(`/api/stock-data?query=${encodeURIComponent(ticker)}`);
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+            console.error(`Failed to fetch historical data for ${ticker}:`, errorData.error || response.statusText);
+            return { historicalData: [], currency: 'USD' };
+        }
+        const data = await response.json();
+        return { historicalData: data.historicalData || [], currency: data.currency || 'USD' };
+    } catch (e: any) {
+        console.error(`Exception while fetching historical data for ${ticker}:`, e.message);
+        return { historicalData: [], currency: 'USD' };
+    }
+}
+
 
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
@@ -69,7 +85,6 @@ export default function MarketMojoDashboard() {
             setRawApiData(cached.analysis.rawResponse);
             setTicker(articles[0]?.ticker || normalizedInput);
             setCurrency(cached.currency);
-            setHasSearched(true);
             setNoResults(false);
             toast({
                 title: 'Loaded from Cache',
@@ -85,15 +100,13 @@ export default function MarketMojoDashboard() {
         const articles = processAnalysisResult(analysisResult);
         const identifiedTicker = articles[0].ticker;
         
-        const staticTickerData = industryData[identifiedTicker];
-        const historicalData = staticTickerData?.historicalData || [];
-        const currency = articles[0].currency || 'USD';
+        const { historicalData, currency: fetchedCurrency } = await fetchHistoricalData(identifiedTicker);
         
         if (historicalData.length === 0) {
             toast({
                 variant: "destructive",
                 title: 'Price Data Unavailable',
-                description: `Could not retrieve historical price data for ${identifiedTicker}. The chart will be empty.`
+                description: `Could not retrieve historical price data for ${identifiedTicker}. The chart may be empty.`
             });
         }
 
@@ -101,13 +114,13 @@ export default function MarketMojoDashboard() {
         setPriceData(historicalData);
         setRawApiData(analysisResult.rawResponse);
         setTicker(identifiedTicker);
-        setCurrency(currency);
+        setCurrency(fetchedCurrency || 'USD');
         setNoResults(false);
         
         setAnalysisCache(prevCache => ({
           ...prevCache,
-          [normalizedInput]: { analysis: analysisResult, prices: historicalData, currency: currency },
-          ...(identifiedTicker !== normalizedInput && { [identifiedTicker]: { analysis: analysisResult, prices: historicalData, currency: currency } }),
+          [normalizedInput]: { analysis: analysisResult, prices: historicalData, currency: fetchedCurrency },
+          ...(identifiedTicker !== normalizedInput && { [identifiedTicker]: { analysis: analysisResult, prices: historicalData, currency: fetchedCurrency } }),
         }));
       } else {
         setRawApiData(analysisResult);
@@ -125,7 +138,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, []);
+  }, [handleAnalysis]);
 
   const handleViewTicker = () => {
     if (tickerInput) {
