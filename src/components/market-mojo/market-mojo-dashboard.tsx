@@ -32,8 +32,10 @@ const calculateTrend = (data: PriceData[]): 'Up' | 'Down' | 'Neutral' => {
     const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
     const minPrice = Math.min(...data.map(d => d.close));
 
-    if (slope > 0.01 * minPrice) return 'Up';
-    if (slope < -0.01 * minPrice) return 'Down';
+    // A more sensitive threshold for trend detection
+    const threshold = 0.005 * minPrice; // 0.5% of min price as threshold
+    if (slope > threshold) return 'Up';
+    if (slope < -threshold) return 'Down';
     return 'Neutral';
 };
 
@@ -112,7 +114,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setUserInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, [handleAnalysis]);
+  }, []);
 
   const handleViewTicker = () => {
     if (userInput) {
@@ -150,19 +152,6 @@ export default function MarketMojoDashboard() {
               </Button>
             </div>
         </div>
-
-        {isAnalyzing && (
-          <Accordion type="single" collapsible className="w-full mb-8 max-w-3xl mx-auto">
-            <AccordionItem value="item-1">
-              <AccordionTrigger>View Raw API Response</AccordionTrigger>
-              <AccordionContent>
-                <pre className="p-4 bg-muted rounded-md text-xs overflow-x-auto">
-                  <code>{analysisResult ? JSON.stringify(analysisResult.rawResponse, null, 2) : "Loading..."}</code>
-                </pre>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        )}
         
         {isLoading ? (
           <div className="text-center py-16">
@@ -188,7 +177,10 @@ export default function MarketMojoDashboard() {
               </>
             </div>
             <div className="space-y-8 lg:sticky lg:top-24 self-start">
-              <StaticAnalysis ticker={displayTicker} />
+              <StaticAnalysis 
+                isLoading={isLoading}
+                analysisData={analysisResult?.industryAnalysis} 
+              />
               <TopCompanies onCompanySelect={handleCompanySelect} />
             </div>
           </div>
@@ -200,9 +192,21 @@ export default function MarketMojoDashboard() {
                    Could not retrieve sentiment data for <span className="font-semibold text-foreground">{userInput}</span>.
                </p>
                <p className="text-sm text-muted-foreground">This could be due to a lack of recent news or an issue with the data service.</p>
+               {analysisResult?.rawResponse && (
+                  <Accordion type="single" collapsible className="w-full mt-4 max-w-xl mx-auto text-left">
+                    <AccordionItem value="item-1">
+                      <AccordionTrigger>View Raw API Response</AccordionTrigger>
+                      <AccordionContent>
+                        <pre className="p-4 bg-muted rounded-md text-xs overflow-x-auto">
+                          <code>{JSON.stringify(analysisResult.rawResponse, null, 2)}</code>
+                        </pre>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+               )}
             </div>
         ) : (
-          <div className="text-center">
+          <div className="max-w-4xl mx-auto">
             <TopCompanies onCompanySelect={handleCompanySelect} />
           </div>
         )}

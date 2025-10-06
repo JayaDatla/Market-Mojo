@@ -23,9 +23,16 @@ export type TickerAnalysis = {
   analysis_summary: AnalysisSummary;
 };
 
+export type IndustryAnalysis = {
+  industry: string;
+  sectorAnalysis: string;
+  competitors: string[];
+}
+
 // This type represents the direct output from the API call
 export type TickerAnalysisOutput = {
   company?: string;
+  industryAnalysis?: IndustryAnalysis;
   tickers?: TickerAnalysis[];
   error?: string;
   rawResponse?: any;
