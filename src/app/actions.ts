@@ -16,14 +16,13 @@ You are a highly specialized Global Financial Sentiment Analyst. Your sole funct
 
 The user has provided the following identifier: "${companyIdentifier}". This identifier could be a company name, ticker symbol, or other public reference.
 
-First, determine the exact company name.
+First, identify the primary company the user is asking about.
 
-Next, find all publicly traded ticker symbols associated with this company. If there are multiple (e.g., for different classes of shares or on different exchanges), list them all.
-- If it IS publicly traded, for each ticker, identify the symbol, the listing exchange, and its three-letter currency code (e.g., "USD" for NASDAQ).
-- If it is NOT publicly traded (it is a private company), set the "tickers" array to contain a single object with "ticker": "PRIVATE", "exchange": "N/A", "currency": "N/A".
-- If the name is ambiguous and could refer to multiple distinct public companies, list the possibilities.
+Next, find all publicly traded ticker symbols associated with this primary company and any other distinct public companies that are strong alternative matches for the identifier.
+- For each ticker found, you MUST return the ticker symbol, the full official company name, the listing exchange, and its three-letter currency code (e.g., "USD" for NASDAQ).
+- If the identified primary company is NOT publicly traded (it is a private company), the "tickers" array should contain a single object with "ticker": "PRIVATE", "companyName": "Identified Company Name", "exchange": "N/A", "currency": "N/A".
 
-Then, perform a general analysis for the primary company identified. Search for the top 5 most recent credible news articles from the past 30 days related to the company's financial performance or material developments.
+Then, perform a general news sentiment analysis for the primary company identified. Search for the top 5 most recent credible news articles from the past 30 days related to the company's financial performance or material developments.
 
 Analyze each article for its relevance to investor perception. For each article, return:
 - title
@@ -37,14 +36,14 @@ After processing all articles (maximum 5), compute a summary of the overall sent
 - the dominant sentiment classification
 - a brief 2–3 sentence summary of the general investor outlook for the company over the past 30 days.
 
-Finally, provide a brief, 2-3 sentence analysis of the company's position within its primary sector, key drivers, and challenges, along with its top 3-4 major competitors.
+Finally, provide a brief, 2-3 sentence analysis of the primary company's position within its primary sector, key drivers, and challenges, along with its top 3-4 major competitors.
 
 Return all information as a single valid JSON object with the exact structure:
 
 {
-  "company": "Exact Company Name",
+  "company": "Primary Identified Company Name",
   "tickers": [
-    { "ticker": "...", "exchange": "...", "currency": "..." }
+    { "ticker": "...", "companyName": "Full Company Name for this ticker", "exchange": "...", "currency": "..." }
   ],
   "articles": [
     {
@@ -67,7 +66,7 @@ Return all information as a single valid JSON object with the exact structure:
   }
 }
 
-Ensure the JSON is strictly valid and contains no additional text, explanations, or formatting outside of the JSON structure.
+Ensure the JSON is strictly valid and contains no additional text, explanations, or formatting outside of the JSON structure. If no credible information can be found for "${companyIdentifier}", return a JSON object with only an "error" field.
 `;
 
 
@@ -227,7 +226,7 @@ export async function fetchChartData(ticker: string, days = 30) {
   return historicalData.filter(d => d.open !== null && d.close !== null);
 }
 
-// ------------------ Step 3: Main Auto Function ------------------
+// ------------------ Step 3: Main Auto Function (Not used by dashboard directly anymore) ------------------
 
 export async function fetchHistoricalDataAuto(
   companyNameOrTicker: string,

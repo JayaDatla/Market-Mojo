@@ -28,7 +28,7 @@ export default function TickerSelector({ tickers, onSelect }: TickerSelectorProp
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3">
           {tickers.map((ticker) => (
             <Button
               key={`${ticker.ticker}-${ticker.exchange}`}
@@ -36,8 +36,11 @@ export default function TickerSelector({ tickers, onSelect }: TickerSelectorProp
               className="justify-start text-left h-auto py-3 px-4 flex flex-col items-start hover:bg-accent hover:text-accent-foreground"
               onClick={() => onSelect(ticker)}
             >
-              <span className="font-semibold text-sm sm:text-base text-foreground truncate w-full">{ticker.ticker}</span>
-              <span className="text-xs sm:text-sm text-muted-foreground">{ticker.exchange}</span>
+              <div className='flex items-center justify-between w-full'>
+                <span className="font-semibold text-sm sm:text-base text-foreground truncate">{ticker.ticker}</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">{ticker.exchange}</span>
+              </div>
+              <span className="text-xs text-muted-foreground text-left w-full truncate">{ticker.companyName}</span>
             </Button>
           ))}
         </div>

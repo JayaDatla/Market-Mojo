@@ -18,6 +18,7 @@ export type AnalysisSummary = {
 
 export type Ticker = {
   ticker: string;
+  companyName: string;
   exchange: string;
   currency: string;
 };

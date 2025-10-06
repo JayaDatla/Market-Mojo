@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useCallback, useTransition, useEffect } from 'react';
-import { fetchAndAnalyzeNews, fetchChartData, fetchHistoricalDataAuto } from '@/app/actions';
+import { fetchAndAnalyzeNews, fetchChartData } from '@/app/actions';
 import type { Ticker, TickerAnalysisOutput, PriceData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
@@ -121,6 +121,7 @@ export default function MarketMojoDashboard() {
 
       if (analysisData?.tickers && analysisData.tickers.length === 1) {
         const firstTicker = analysisData.tickers[0];
+        // If there's only one ticker, select it automatically
         handleTickerSelection(firstTicker);
       }
     });
@@ -167,7 +168,7 @@ export default function MarketMojoDashboard() {
   const isLoading = isAnalyzing;
   
   const showSentimentAnalysis = hasSearched && !isLoading && analysisResult && analysisResult.articles && analysisResult.articles.length > 0;
-  const showDisambiguation = showSentimentAnalysis && analysisResult.tickers && analysisResult.tickers.length > 1 && !selectedTicker;
+  const showDisambiguation = hasSearched && !isLoading && analysisResult?.tickers && analysisResult.tickers.length > 1 && !selectedTicker;
   const showPriceChart = selectedTicker && priceData.length > 0;
   const showNoResults = hasSearched && !isLoading && (!analysisResult || !analysisResult.tickers || analysisResult.tickers.length === 0);
 
@@ -196,7 +197,7 @@ export default function MarketMojoDashboard() {
             </div>
         </div>
         
-        {isLoading && !hasSearched ? (
+        {isLoading && !analysisResult ? (
           <div className="text-center py-16">
             <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
             <p className="text-muted-foreground mt-4">Analyzing {userInput}...</p>
