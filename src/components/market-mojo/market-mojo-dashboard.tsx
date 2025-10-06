@@ -15,27 +15,46 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import InvestmentSuggestion from './investment-suggestion';
+import { industryData } from './static-analysis';
 
 type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[], currency: string }>;
 
-async function fetchHistoricalData(ticker: string): Promise<{ historicalData: PriceData[], currency: string }> {
-    try {
-        const response = await fetch(`/api/stock-data?query=${encodeURIComponent(ticker)}`);
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
-            console.error(`Failed to fetch historical data for ${ticker}:`, errorData.error || response.statusText);
-            return { historicalData: [], currency: 'USD' };
-        }
-        const data = await response.json();
-        return {
-            historicalData: data.historicalData || [],
-            currency: data.currency || 'USD'
-        };
-    } catch (error: any) {
-        console.error(`Network or other error fetching historical data for ${ticker}:`, error);
-        return { historicalData: [], currency: 'USD' };
+// Generates a plausible but random 30-day price history.
+function generatePriceData(ticker: string): PriceData[] {
+  const data: PriceData[] = [];
+  const today = new Date();
+  
+  // Use ticker analysis for some initial direction
+  const staticInfo = industryData[ticker.toUpperCase()];
+  let trend = (Math.random() - 0.5) * 0.1; // small random trend
+  if (staticInfo) {
+    if (staticInfo.analysis.includes('dominant') || staticInfo.analysis.includes('leader')) {
+      trend += 0.05;
     }
+    if (staticInfo.analysis.includes('competition') || staticInfo.analysis.includes('recovering')) {
+      trend -= 0.05;
+    }
+  }
+
+  let price = 100 + Math.random() * 200; // Start with a random base price
+
+  for (let i = 30; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    
+    // Add some noise and apply the trend
+    const dailyChange = (Math.random() - 0.5) * 5;
+    price += dailyChange + trend * price * 0.1;
+    
+    // Ensure price doesn't go below a certain threshold
+    if (price < 10) price = 10;
+
+    data.push({
+      date: date.toISOString().split('T')[0],
+      price: parseFloat(price.toFixed(2)),
+    });
+  }
+  return data;
 }
 
 
@@ -105,23 +124,17 @@ export default function MarketMojoDashboard() {
         const articles = processAnalysisResult(analysisResult);
         const identifiedTicker = articles[0].ticker;
         
-        const { historicalData: fetchedPriceData, currency: fetchedCurrency } = await fetchHistoricalData(identifiedTicker);
+        // Generate placeholder price data instead of fetching
+        const fetchedPriceData = generatePriceData(identifiedTicker);
+        const fetchedCurrency = articles[0].currency || 'USD';
 
         setNewsData(articles);
         setPriceData(fetchedPriceData);
         setRawApiData(analysisResult.rawResponse);
         setTicker(identifiedTicker);
-        setCurrency(fetchedCurrency || articles[0].currency || 'USD');
-        setNoResults(fetchedPriceData.length === 0);
+        setCurrency(fetchedCurrency);
+        setNoResults(false);
         
-        if (fetchedPriceData.length === 0) {
-          toast({
-            variant: 'default',
-            title: 'Partial Data',
-            description: `Could not fetch historical price data for ${identifiedTicker}. Displaying sentiment analysis only.`,
-          });
-        }
-
         setAnalysisCache(prevCache => ({
           ...prevCache,
           [normalizedInput]: { analysis: analysisResult, prices: fetchedPriceData, currency: fetchedCurrency },
