@@ -9,7 +9,7 @@ import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
 import SentimentCharts from './sentiment-charts';
 import NewsFeed from './news-feed';
-import StaticAnalysis from './static-analysis';
+import StaticAnalysis, { industryData } from './static-analysis';
 import TopCompanies from './top-companies';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -17,7 +17,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import InvestmentSuggestion from './investment-suggestion';
 
 type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[], currency: string }>;
-type StockDataCache = Record<string, { historicalData: PriceData[], currency: string, ticker: string }>;
 
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
@@ -26,7 +25,6 @@ export default function MarketMojoDashboard() {
   const [priceData, setPriceData] = useState<PriceData[]>([]);
   const [rawApiData, setRawApiData] = useState<any>(null);
   const [analysisCache, setAnalysisCache] = useState<AnalysisCache>({});
-  const [stockDataCache, setStockDataCache] = useState<StockDataCache>({});
 
   const [currency, setCurrency] = useState<string>('USD');
   const [isAnalyzing, startTransition] = useTransition();
@@ -49,30 +47,9 @@ export default function MarketMojoDashboard() {
     }));
   };
 
-  const fetchHistoricalData = async (ticker: string) => {
-    const normalizedTicker = ticker.trim().toUpperCase();
-    if (stockDataCache[normalizedTicker]) {
-      toast({
-        title: 'Loaded Price Data from Cache',
-        description: `Displaying cached price chart for ${normalizedTicker}.`,
-      });
-      return stockDataCache[normalizedTicker];
-    }
-    
-    const response = await fetch(`/api/stock-data?query=${ticker}`);
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
-        console.error(`Failed to fetch historical data for ${ticker}:`, errorData.error || response.statusText);
-        toast({
-            variant: "destructive",
-            title: 'Price Data Unavailable',
-            description: `Could not fetch historical price data for ${ticker}.`
-        });
-        return { historicalData: [], currency: 'USD', ticker: ticker };
-    }
-    const data = await response.json();
-    setStockDataCache(prev => ({...prev, [normalizedTicker]: data, [data.ticker]: data }));
-    return data;
+  const getStaticPriceData = (tickerSymbol: string): PriceData[] => {
+    const company = industryData[tickerSymbol.toUpperCase()];
+    return company?.historicalData || [];
   }
 
   const handleAnalysis = (input: string) => {
@@ -88,48 +65,21 @@ export default function MarketMojoDashboard() {
       setRawApiData(null);
       setTicker(input);
       setCurrency('USD');
-
-      if (analysisCache[normalizedInput] && stockDataCache[normalizedInput]) {
-        const cachedAnalysis = analysisCache[normalizedInput];
-        const cachedStockData = stockDataCache[normalizedInput];
-
-        const articles = processAnalysisResult(cachedAnalysis.analysis);
-        setNewsData(articles);
-        setPriceData(cachedStockData.historicalData);
-        setRawApiData(cachedAnalysis.analysis.rawResponse);
-        setTicker(cachedStockData.ticker);
-        setCurrency(cachedStockData.currency);
-        setNoResults(articles.length === 0);
-        toast({
-            title: 'Loaded from Cache',
-            description: `Displaying cached results for ${normalizedInput}.`,
-        });
-        return;
-      }
       
-      const [analysisResult, stockDataResult] = await Promise.all([
-        analysisCache[normalizedInput] 
-            ? Promise.resolve(analysisCache[normalizedInput].analysis) 
-            : fetchAndAnalyzeNews(input),
-        stockDataCache[normalizedInput]
-            ? Promise.resolve(stockDataCache[normalizedInput])
-            : fetchHistoricalData(input)
-      ]);
-
+      const analysisResult = await fetchAndAnalyzeNews(input);
 
       if (analysisResult && !analysisResult.error && analysisResult.analysis && analysisResult.analysis.length > 0) {
         const articles = processAnalysisResult(analysisResult);
+        const finalTicker = articles[0].ticker;
         setNewsData(articles);
         setRawApiData(analysisResult.rawResponse);
-        setTicker(articles[0].ticker);
+        setTicker(finalTicker);
+        setCurrency(articles[0].currency || 'USD');
         
-        if (!analysisCache[normalizedInput]) {
-          setAnalysisCache(prev => ({
-            ...prev,
-            [normalizedInput]: { analysis: analysisResult, prices: [], currency: '' }, // prices/currency are handled by stockData
-            ...(articles[0].ticker !== normalizedInput && { [articles[0].ticker]: { analysis: analysisResult, prices: [], currency: '' } }),
-          }));
-        }
+        // Get static price data
+        const staticPrices = getStaticPriceData(finalTicker);
+        setPriceData(staticPrices);
+
       } else {
         setRawApiData(analysisResult);
         setNoResults(true);
@@ -138,15 +88,14 @@ export default function MarketMojoDashboard() {
           title: 'Sentiment Analysis Failed',
           description: analysisResult?.error || 'No news articles could be analyzed for this ticker.',
         });
-      }
-
-      if (stockDataResult && stockDataResult.historicalData.length > 0) {
-        setPriceData(stockDataResult.historicalData);
-        setCurrency(stockDataResult.currency);
-        setTicker(stockDataResult.ticker); // Can be a more specific ticker
-      } else {
-        setPriceData([]);
-        // Error toast is shown in fetchHistoricalData
+        
+        // Still try to show static price data if the input is a known ticker
+        const staticPrices = getStaticPriceData(normalizedInput);
+        setPriceData(staticPrices);
+        if (staticPrices.length > 0) {
+            setTicker(normalizedInput);
+            setNoResults(false);
+        }
       }
     });
   };
@@ -154,7 +103,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, [handleAnalysis]);
+  }, []);
 
   const handleViewTicker = () => {
     if (tickerInput) {
