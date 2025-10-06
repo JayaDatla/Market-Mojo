@@ -6,125 +6,89 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import dayjs from 'dayjs';
 
+// Browser-like headers to avoid 403 and overflow issues
 const axiosOptions = {
   headers: {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Connection": "keep-alive",
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Connection': 'keep-alive',
+    'Cache-Control': 'no-cache',
   },
-  maxRedirects: 0,
   decompress: true,
+  maxRedirects: 0,
   validateStatus: (status: number) => status < 400,
 };
 
-async function getStockData(query: string): Promise<{ ticker: string; currency: string; data: { date: string; price: number }[] }> {
-  const ticker = await resolveTicker(query);
-  const historyUrl = `https://finance.yahoo.com/quote/${ticker}/history?p=${ticker}`;
-  
+async function resolveTicker(query: string): Promise<string> {
+  // 1️⃣ Try direct ticker first
   try {
-    const res = await axios.get(historyUrl, axiosOptions);
-    const $ = cheerio.load(res.data);
-
-    const currencyMatch = $("span:contains('Currency in')").text().match(/Currency in (\w+)/);
-    const currency = currencyMatch ? currencyMatch[1] : "Unknown";
-
-    const rows = $('table[data-test="historical-prices"] tbody tr');
-    const data: { date: string; price: number }[] = [];
-
-    rows.each((i, el) => {
-      const cols = $(el).find("td");
-      const dateStr = $(cols[0]).text();
-      // Ensure date is valid before parsing
-      if (dayjs(dateStr, 'MMM DD, YYYY').isValid()) {
-          const date = dayjs(dateStr, 'MMM DD, YYYY').format('YYYY-MM-DD');
-          const close = parseFloat($(cols[4]).text().replace(/,/g, ""));
-          if (date && !isNaN(close)) {
-            data.push({ date, price: close });
-          }
-      }
-    });
-
-    if (data.length === 0) {
-      throw new Error(`No historical data found for '${ticker}'`);
+    const url = `https://finance.yahoo.com/quote/${query}`;
+    const res = await axios.get(url, axiosOptions);
+    if (res.status === 200 && res.data.includes('Currency in')) {
+      return query;
     }
-
-    // Sort oldest to newest
-    const sortedData = data.sort((a, b) => (a.date > b.date ? 1 : -1));
-
-    return { ticker, currency, data: sortedData.slice(0, 30) };
-
-  } catch (err: any) {
-    if (err.message.includes("overflow") || (err.response && err.response.status === 302)) {
-      console.warn("⚠️ Header overflow or redirect detected, retrying with fallback tickers...");
-      const fallbackResult = await tryRegionalFallbacks(query);
-      // If fallback works, it will recursively call getStockData, which returns full data.
-      // This part might need adjustment based on what tryRegionalFallbacks returns.
-      // Assuming tryRegionalFallbacks finds a working ticker and calls getStockData with it.
-      return fallbackResult;
-    }
-    throw err;
+  } catch {
+    // Continue to next method
   }
+
+  // 2️⃣ Lookup by name
+  try {
+    const lookupUrl = `https://finance.yahoo.com/lookup?s=${encodeURIComponent(query)}`;
+    const res = await axios.get(lookupUrl, axiosOptions);
+    const $ = cheerio.load(res.data);
+    const ticker = $('table tbody tr td:first-child a').first().text().trim();
+    if (ticker) return ticker;
+  } catch {
+    // Continue to fallback
+  }
+
+  // 3️⃣ Try fallback suffixes (regional)
+  const suffixes = ['.NS', '.BO', '.L', '.DE', '.SW', '.T', '.KS', '.TO', '.AX'];
+  for (const sfx of suffixes) {
+    try {
+      const t = `${query}${sfx}`;
+      const url = `https://finance.yahoo.com/quote/${t}`;
+      const res = await axios.get(url, axiosOptions);
+      if (res.status === 200 && res.data.includes('Currency in')) {
+        return t;
+      }
+    } catch {}
+  }
+
+  throw new Error(`Could not resolve ticker for '${query}'`);
 }
 
-async function resolveTicker(query: string): Promise<string> {
-  // First check if direct ticker page exists by trying to fetch its history
-  try {
-    const res = await axios.get(`https://finance.yahoo.com/quote/${query}/history`, axiosOptions);
-    if (res.status === 200) return query;
-  } catch {}
-
-  // Otherwise, search by name
-  const searchUrl = `https://finance.yahoo.com/lookup?s=${encodeURIComponent(query)}`;
-  const res = await axios.get(searchUrl, axiosOptions);
+async function fetchHistoricalData(ticker: string) {
+  const url = `https://finance.yahoo.com/quote/${ticker}/history?p=${ticker}`;
+  const res = await axios.get(url, axiosOptions);
   const $ = cheerio.load(res.data);
-  
-  // Find the first ticker link in the results table
-  const preferred = ['NASDAQ', 'NYSE', 'LSE', 'TSE', 'NSE', 'BSE'];
-  let foundTicker = '';
 
-  const rows = $('table tbody tr');
-  const tickerData: { symbol: string; exchange: string }[] = [];
-  rows.each((_, row) => {
-    const cols = $(row).find('td');
-    const symbol = $(cols[0]).find('a').text().trim();
-    const exchange = $(cols[2]).text().trim();
-    if(symbol) tickerData.push({ symbol, exchange });
+  const currencyMatch = $("span:contains('Currency in')").text().match(/Currency in (\w+)/);
+  const currency = currencyMatch ? currencyMatch[1] : 'Unknown';
+
+  const rows = $('table[data-test="historical-prices"] tbody tr');
+  const data: { date: string; price: number }[] = [];
+
+  rows.each((i, el) => {
+    const cols = $(el).find('td');
+    const dateText = $(cols[0]).text().trim();
+    const closeText = $(cols[4]).text().trim().replace(/,/g, '');
+    const date = dayjs(dateText).format('YYYY-MM-DD');
+    const price = parseFloat(closeText);
+    if (!isNaN(price) && dayjs(date).isValid()) {
+      data.push({ date, price });
+    }
   });
 
-  for (const pref of preferred) {
-    const match = tickerData.find(t => t.exchange.includes(pref));
-    if (match) {
-        foundTicker = match.symbol;
-        break;
-    }
+  if (data.length === 0) {
+    throw new Error(`No historical data found for '${ticker}'`);
   }
 
-  if (!foundTicker && tickerData.length > 0) {
-    foundTicker = tickerData[0].symbol;
-  }
-  
-  return foundTicker || query;
+  // Sort oldest first and keep last 30
+  data.sort((a, b) => (a.date > b.date ? 1 : -1));
+  return { currency, historicalData: data.slice(-30) };
 }
-
-async function tryRegionalFallbacks(base: string): Promise<{ ticker: string; currency: string; data: { date: string; price: number }[] }> {
-  const suffixes = [".NS", ".BO", ".L", ".DE", ".SW", ".T", ".KS", ".TO", ".AX"];
-  for (const suffix of suffixes) {
-    try {
-      const ticker = (base.endsWith(suffix) ? base : base + suffix).replace(suffix+suffix, suffix);
-      console.log(`Trying fallback: ${ticker}`);
-      // Once a potential ticker is found, call getStockData with it to perform the full fetch
-      return await getStockData(ticker); 
-    } catch (e) {
-        // If this ticker fails, continue to the next one
-        console.log(`Fallback ${ticker} failed. Continuing...`);
-    }
-  }
-  throw new Error(`❌ Could not fetch data for ${base} or any fallback tickers`);
-}
-
-
-// -------------------- Main API Handler --------------------
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -135,21 +99,16 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await getStockData(query);
+    const ticker = await resolveTicker(query);
+    const { currency, historicalData } = await fetchHistoricalData(ticker);
 
-    return NextResponse.json(
-      {
-        currency: result.currency,
-        historicalData: result.data,
-        ticker: result.ticker
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      currency,
+      historicalData,
+      ticker,
+    });
   } catch (error: any) {
-    console.error(`Error fetching stock data for ${query}:`, error.message);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch stock data' },
-      { status: 500 }
-    );
+    console.error(`❌ Error fetching stock data for ${query}:`, error.message);
+    return NextResponse.json({ error: error.message || 'Failed to fetch stock data' }, { status: 500 });
   }
 }
