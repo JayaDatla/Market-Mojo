@@ -18,24 +18,58 @@ import SentimentPieChart from './sentiment-pie-chart';
 import HistoricalPriceChart from './historical-price-chart';
 import MojoSynthesis from './mojo-synthesis';
 
-// This function can be defined outside the component as it doesn't depend on component state
+// Helper function to calculate a Simple Moving Average (SMA)
+const calculateMovingAverage = (data: PriceData[], windowSize: number): number[] => {
+  const averages: number[] = [];
+  if (data.length < windowSize) return [];
+  
+  // First, calculate the sum of the initial window
+  let sum = 0;
+  for (let i = 0; i < windowSize; i++) {
+    sum += data[i].close;
+  }
+  averages.push(sum / windowSize);
+
+  // Then, use a sliding window for efficiency
+  for (let i = windowSize; i < data.length; i++) {
+    sum = sum - data[i - windowSize].close + data[i].close;
+    averages.push(sum / windowSize);
+  }
+  
+  return averages;
+};
+
+
+// New trend calculation logic using moving averages
 const calculateTrend = (data: PriceData[]): 'Up' | 'Down' | 'Neutral' => {
     const n = data.length;
-    if (n < 2) return 'Neutral';
+    const shortTermWindow = 7;
+    const longTermWindow = 25;
 
-    const points = data.map((d, i) => ({ x: i, y: d.close }));
-    const sumX = points.reduce((acc, p) => acc + p.x, 0);
-    const sumY = points.reduce((acc, p) => acc + p.y, 0);
-    const sumXY = points.reduce((acc, p) => acc + p.x * p.y, 0);
-    const sumXX = points.reduce((acc, p) => acc + p.x * p.x, 0);
+    // We need enough data to make a meaningful comparison
+    if (n < longTermWindow) return 'Neutral';
+
+    // Calculate moving averages
+    const shortTermMA = calculateMovingAverage(data, shortTermWindow);
+    const longTermMA = calculateMovingAverage(data, longTermWindow);
+
+    // Ensure we have averages to compare
+    if (shortTermMA.length === 0 || longTermMA.length === 0) {
+        return 'Neutral';
+    }
+
+    // Get the most recent average values
+    const latestShortTermMA = shortTermMA[shortTermMA.length - 1];
+    const latestLongTermMA = longTermMA[longTermMA.length - 1];
+
+    // Determine the trend based on the crossover
+    const difference = latestShortTermMA - latestLongTermMA;
     
-    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-    const minPrice = Math.min(...data.map(d => d.close));
+    // Use a percentage of the long-term average as a threshold to avoid flagging minor fluctuations
+    const threshold = latestLongTermMA * 0.02; // 2% threshold
 
-    // A more sensitive threshold for trend detection
-    const threshold = 0.005 * minPrice; // 0.5% of min price as threshold
-    if (slope > threshold) return 'Up';
-    if (slope < -threshold) return 'Down';
+    if (difference > threshold) return 'Up';
+    if (difference < -threshold) return 'Down';
     return 'Neutral';
 };
 
