@@ -14,9 +14,7 @@ const headers = {
 
 
 function getUnixTimestampDaysAgo(daysAgo: number): number {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  return Math.floor(d.getTime() / 1000);
+  return dayjs().subtract(daysAgo, 'day').unix();
 }
 
 
@@ -38,11 +36,15 @@ async function fetchYahooFinanceHistory(ticker: string, currency: string): Promi
                 const dateText = $(cols[0]).text().trim();
                 const openText = $(cols[1]).text().replace(/,/g, "");
                 
-                // Skip dividend rows or other special rows
-                if (openText.toLowerCase().includes('dividend')) return;
+                // Skip dividend rows or other special rows which don't have a valid price.
+                if (openText.toLowerCase().includes('dividend') || isNaN(parseFloat(openText))) {
+                    return;
+                }
+
+                const date = dayjs(dateText, "MMM DD, YYYY");
 
                 const row = {
-                    date: dayjs(dateText).isValid() ? dayjs(dateText).format('YYYY-MM-DD') : 'Invalid Date',
+                    date: date.isValid() ? date.format('YYYY-MM-DD') : 'Invalid Date',
                     open: parseFloat(openText),
                     high: parseFloat($(cols[2]).text().replace(/,/g, "")),
                     low: parseFloat($(cols[3]).text().replace(/,/g, "")),
@@ -59,6 +61,10 @@ async function fetchYahooFinanceHistory(ticker: string, currency: string): Promi
         });
         
         if (historyRows.length === 0) {
+            // Check for a specific message that indicates the ticker is not found
+            if ($('h1').text().includes("We can't find any results for")) {
+                 throw new Error(`Ticker '${ticker}' not found on Yahoo Finance.`);
+            }
             throw new Error(`No historical data found for ${ticker}. The page structure might have changed or the ticker is invalid.`);
         }
 
@@ -67,7 +73,12 @@ async function fetchYahooFinanceHistory(ticker: string, currency: string): Promi
         if (axios.isAxiosError(error) && error.response?.status === 404) {
             throw new Error(`Ticker '${ticker}' not found on Yahoo Finance.`);
         }
-        throw error;
+        // Re-throw errors that we've already created with a specific message
+        if (error.message.includes('Ticker') || error.message.includes('No historical data')) {
+            throw error;
+        }
+        // General error
+        throw new Error(`Failed to fetch from Yahoo Finance: ${error.message}`);
     }
 }
 
@@ -85,6 +96,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error: any) {
     console.error(`Error fetching data for ${ticker}:`, error.message);
-    return NextResponse.json({ error: `Could not fetch or parse historical data for ${ticker}. The scraper may be blocked or the page structure might have changed.` }, { status: 500 });
+    return NextResponse.json({ error: `Could not fetch or parse historical data for ${ticker}. ${error.message}` }, { status: 500 });
   }
 }

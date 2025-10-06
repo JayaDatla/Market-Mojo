@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AreaChart, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import type { PriceData } from '@/types';
-import { TrendingDown, TrendingUp, TrendingFlat } from 'lucide-react';
+import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { DropShadowFilter } from '@/components/ui/filters';
 
 interface HistoricalPriceChartProps {
@@ -33,7 +33,7 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, curren
 
     const { chartData, prediction, trendColor, TrendIcon } = useMemo(() => {
         if (!priceData || priceData.length === 0) {
-            return { chartData: [], prediction: null, trendColor: 'text-gray-500', TrendIcon: TrendingFlat };
+            return { chartData: [], prediction: null, trendColor: 'text-gray-500', TrendIcon: Minus };
         }
 
         const formattedData = priceData.map((d, i) => ({
@@ -52,7 +52,7 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, curren
 
         let pred: 'Up' | 'Down' | 'Neutral' = 'Neutral';
         let color = 'text-gray-500';
-        let icon = TrendingFlat;
+        let icon = Minus;
 
         if (trend.slope > 0 && sentimentScore > 0.1) {
             pred = 'Up';
