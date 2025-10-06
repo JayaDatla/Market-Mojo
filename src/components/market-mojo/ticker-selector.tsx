@@ -31,7 +31,7 @@ export default function TickerSelector({ tickers, onSelect }: TickerSelectorProp
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
           {tickers.map((ticker) => (
             <Button
-              key={ticker.ticker}
+              key={`${ticker.ticker}-${ticker.exchange}`}
               variant="outline"
               className="justify-start text-left h-auto py-3 px-4 flex flex-col items-start hover:bg-accent hover:text-accent-foreground"
               onClick={() => onSelect(ticker)}
