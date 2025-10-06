@@ -17,7 +17,7 @@ async function isDirectTicker(symbol: string): Promise<boolean> {
   }
 }
 
-async function findTicker(query: string): Promise<{ symbol: string; name: string; exchange: string }> {
+async function findTicker(query: string): Promise<{ symbol: string; name: string; exchange: string } | null> {
   const encoded = encodeURIComponent(query);
   const searchUrl = `https://finance.yahoo.com/lookup?s=${encoded}`;
   const res = await fetch(searchUrl, { headers: HEADERS });
@@ -25,7 +25,7 @@ async function findTicker(query: string): Promise<{ symbol: string; name: string
   const $ = cheerio.load(text);
 
   const rows = $("table tbody tr");
-  if (rows.length === 0) throw new Error(`No results found for '${query}'`);
+  if (rows.length === 0) return null;
 
   const tickerData: { symbol: string; name: string; exchange: string }[] = [];
   rows.each((_, row) => {
@@ -34,6 +34,8 @@ async function findTicker(query: string): Promise<{ symbol: string; name: string
       tickerData.push({ symbol: cols[0], name: cols[1], exchange: cols[2] });
     }
   });
+
+  if (tickerData.length === 0) return null;
 
   const preferred = ["NASDAQ", "NYSE", "LSE", "TSE", "NSE", "BSE"];
   for (const pref of preferred) {
@@ -96,13 +98,18 @@ export async function GET(request: Request) {
   }
 
   try {
-    let symbol = "";
-
-    if (await isDirectTicker(query)) {
+    let symbol: string | null = "";
+    const isTicker = await isDirectTicker(query);
+    
+    if (isTicker) {
       symbol = query.toUpperCase();
     } else {
       const info = await findTicker(query);
-      symbol = info.symbol;
+      symbol = info ? info.symbol : null;
+    }
+
+    if (!symbol) {
+        throw new Error(`Could not find a valid ticker for '${query}'`);
     }
 
     const [currency, historicalData] = await Promise.all([
