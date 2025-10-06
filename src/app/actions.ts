@@ -11,29 +11,18 @@ const analysisCache = new Map<string, { timestamp: number; data: TickerAnalysisO
 const CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 const generatePrompt = (tickerOrName: string) => `
-You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
+You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to a specific company and its primary stock ticker.
 
-The user has provided the following identifier: "${tickerOrName}". This identifier could be a company name, ticker symbol, or other public reference. First, determine the exact company name, its country of origin (e.g., "USA", "India", "Germany"), all publicly traded ticker symbols, and their associated listing exchanges.
+The user has provided the following identifier: "${tickerOrName}". This string contains either a company name and its country of origin, or a stock ticker and its country of origin.
 
-CRITICAL: If the company is listed on a US-based exchange (e.g., NYSE, NASDAQ) in addition to its primary international exchange, you MUST prioritize and use the US-based ticker symbol. For all other companies, use the ticker from their primary exchange.
+Your tasks are:
+1.  **Identify the Company and its Ticker**: From the input, identify the precise company name and its primary stock ticker symbol. You MUST prioritize the ticker symbol for the company's main listing exchange based on its country of origin. For example, for a company from India, prioritize the NSE or BSE ticker. For a US company, use the NYSE or NASDAQ ticker.
+2.  **Determine Currency**: Find the three-letter currency code for that primary exchange (e.g., "INR" for NSE, "USD" for NASDAQ).
+3.  **Analyze News**: Search the web for the top 5 most recent, credible news articles about the company's financial performance, product launches, or market-moving events.
+4.  **Extract Financial Sentiment**: For each article, provide a one-sentence summary of its financial impact, a sentiment classification ("Positive", "Negative", or "Neutral"), and a sentiment score from -1.0 to 1.0.
 
-For the selected ticker, determine the three-letter currency code corresponding to its exchange (e.g., "USD" for NASDAQ, "JPY" for Tokyo Stock Exchange, "INR" for NSE India).
+**Output Format**: You MUST return the data as a single, valid JSON array of objects. Do not include any text, explanations, or markdown formatting outside of the JSON array. The structure must be exactly as follows:
 
-After confirming the single most appropriate ticker, its currency, and company's country of origin, search the web for the top 5 most recent credible news articles related to this company’s financial performance, operations, or major market-moving developments.
-
-Strictly analyze each article snippet for its immediate impact on investor perception and potential influence on the stock price, ignoring all non-financial or non-investor-relevant context.
-
-For each article, you MUST provide:
-- title
-- url
-- one-sentence financial impact summary
-- sentiment classification: "Positive", "Negative", or "Neutral"
-- sentiment_score from -1.0 to 1.0
-- the identified ticker
-- the currency code of its primary exchange
-- the company's country of origin as 'companyCountry'
-
-Return results strictly as a single valid JSON array of objects with the exact structure:
 [
   {
     "title": "...",
@@ -46,7 +35,6 @@ Return results strictly as a single valid JSON array of objects with the exact s
     "companyCountry": "..."
   }
 ]
-Ensure no additional text, explanations, or formatting outside of the JSON is included in the final response.
 `;
 
 
@@ -116,11 +104,12 @@ export async function fetchAndAnalyzeNews(
       const analysis: ArticleAnalysis[] = JSON.parse(cleanedContent);
       const result: TickerAnalysisOutput = { analysis, rawResponse: data };
       
-      // If analysis is successful and contains data, cache it using the returned ticker.
+      // If analysis is successful and contains data, cache it.
       if (analysis.length > 0 && analysis[0].ticker) {
+        // Use the identified ticker from the response for caching consistency.
         const finalTicker = analysis[0].ticker.toUpperCase();
         analysisCache.set(finalTicker, { timestamp: Date.now(), data: result });
-        // Also cache under the original user input to catch it on the next immediate try.
+        // Also cache under the original user input.
         analysisCache.set(normalizedInput, { timestamp: Date.now(), data: result });
       }
       
@@ -139,3 +128,4 @@ export async function fetchAndAnalyzeNews(
     return result;
   }
 }
+

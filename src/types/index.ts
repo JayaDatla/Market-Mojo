@@ -22,7 +22,7 @@ export type ArticleAnalysis = {
   sentiment: 'Positive' | 'Negative' | 'Neutral';
   sentiment_score: number;
   ticker: string;
-  currency?: string;
+  currency: string;
   companyCountry: string;
 };
 

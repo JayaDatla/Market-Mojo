@@ -66,14 +66,14 @@ export default function MarketMojoDashboard() {
       
       let finalTicker = input.toUpperCase();
       let finalCurrency = 'USD';
-      let finalCompanyCountry = 'USA';
+      let finalCompanyCountry = ''; // Initialize as empty
 
       // Process Sentiment Analysis Results First
       if (sentimentResult && !sentimentResult.error && sentimentResult.analysis && sentimentResult.analysis.length > 0) {
         const articles = processAnalysisResult(sentimentResult);
         finalTicker = articles[0].ticker;
         finalCurrency = articles[0].currency || 'USD';
-        finalCompanyCountry = articles[0].companyCountry;
+        finalCompanyCountry = articles[0].companyCountry; // This is now guaranteed by the prompt
         
         setNewsData(articles);
         setRawApiData(sentimentResult.rawResponse);
@@ -89,14 +89,17 @@ export default function MarketMojoDashboard() {
         });
       }
 
+      // If country is not resolved, we cannot reliably fetch historical data.
       if (!finalCompanyCountry) {
-        toast({
-            variant: 'destructive',
-            title: 'Missing Data',
-            description: `Could not determine country of origin for ${finalTicker}. Historical data may be unavailable.`,
-        });
+        if (!sentimentResult.error) { // Only show this if sentiment didn't already fail
+            toast({
+                variant: 'destructive',
+                title: 'Missing Data',
+                description: `Could not determine country of origin for ${finalTicker}. Historical data may be unavailable.`,
+            });
+        }
         setPriceData([]);
-        return;
+        return; // Stop here if we don't have a country
       }
 
       // Now fetch historical data with resolved info
@@ -104,12 +107,12 @@ export default function MarketMojoDashboard() {
           const historyResponse = await fetch(`/api/stock-data?ticker=${finalTicker}&companyCountry=${finalCompanyCountry}`);
           if (!historyResponse.ok) {
               const err = await historyResponse.json();
-              throw new Error(err.error);
+              throw new Error(err.error || 'Unknown error from history API');
           }
           const historyResult = await historyResponse.json();
 
           if (historyResult && historyResult.length > 0) {
-              setPriceData(historyResult);
+              setPriceData(historyResult.map((d: any) => ({ date: d.date.split('T')[0], close: d.close })));
           } else {
               throw new Error("No data returned from API.");
           }
@@ -161,13 +164,13 @@ export default function MarketMojoDashboard() {
       <div className="container mx-auto px-4 py-8 flex-grow">
         <div className="max-w-3xl mx-auto mb-12 text-center">
             <h2 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-400 mb-4 tracking-tighter animate-gradient-x">Market Sentiment Analyzer</h2>
-            <p className="text-lg text-muted-foreground">Enter a ticker or company name below to run a real-time news sentiment analysis.</p>
+            <p className="text-lg text-muted-foreground">Enter a ticker/company and its origin to run a real-time news sentiment analysis.</p>
             <div className="mt-6 max-w-xl mx-auto flex items-center gap-2">
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Enter a ticker or company name (e.g., TSLA)"
+                  placeholder="e.g., 'TSLA USA' or 'Tata Motors India'"
                   value={tickerInput}
                   onChange={(e) => setTickerInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleViewTicker()}
