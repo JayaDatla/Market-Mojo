@@ -12,94 +12,82 @@ interface SentimentPieChartProps {
 }
 
 const sentimentConfig = {
-  Positive: { color1: '#00ffcc', color2: '#0077ff' },
-  Neutral: { color1: '#ffcc00', color2: '#ff8800' },
-  Negative: { color1: '#ff3366', color2: '#cc00ff' },
+  Positive: { color: "#22c55e" }, // green
+  Neutral: { color: "#3b82f6" }, // blue
+  Negative: { color: "#ef4444" }, // red
 };
 
 const renderActiveShape = (props: any) => {
-  const RADIAN = Math.PI / 180;
-  const {
-    cx,
-    cy,
-    midAngle,
-    innerRadius,
-    outerRadius,
-    startAngle,
-    endAngle,
-    fill,
-    payload,
-    percent,
-  } = props;
+    const RADIAN = Math.PI / 180;
+    const {
+      cx,
+      cy,
+      midAngle,
+      innerRadius,
+      outerRadius,
+      startAngle,
+      endAngle,
+      fill,
+      payload,
+      percent,
+      liftY = 0 // Default liftY to 0 if not provided
+    } = props;
 
-  const sin = Math.sin(-RADIAN * midAngle);
-  const cos = Math.cos(-RADIAN * midAngle);
-  const textX = cx + (outerRadius + 20) * cos;
-  const textY = cy + (outerRadius + 5) * sin;
+    const sin = Math.sin(-RADIAN * midAngle);
+    const cos = Math.cos(-RADIAN * midAngle);
 
-  return (
-    <g style={{ filter: 'drop-shadow(0 0 6px rgba(128, 128, 255, 0.7))' }}>
-        {/* Glowing drop shadow using an SVG filter */}
+    return (
+      <g style={{ transition: "all 0.4s ease-out" }}>
+        {/* Glow filter */}
         <defs>
-            <filter id="shadow-glow" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor={fill} floodOpacity="0.8" />
+            <filter id="hover-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor={fill} floodOpacity="0.7" />
             </filter>
         </defs>
 
-      {/* Base slice */}
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-      />
-      {/* Highlighted slice */}
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius - 2}
-        outerRadius={outerRadius + 6}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-        filter="url(#shadow-glow)"
-      />
-      {/* Label */}
-      <text
-        x={textX}
-        y={textY}
-        textAnchor={cos >= 0 ? "start" : "end"}
-        fill="#ffffff"
-        fontWeight={700}
-        fontSize={14}
-      >
-        {payload.name}
-      </text>
-      <text
-        x={textX}
-        y={textY + 18}
-        textAnchor={cos >= 0 ? "start" : "end"}
-        fill="#cccccc"
-        fontSize={13}
-      >
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    </g>
-  );
-};
+        {/* Lifted slice */}
+        <Sector
+          cx={cx}
+          cy={cy + liftY}
+          innerRadius={innerRadius - 2}
+          outerRadius={outerRadius + 4}
+          startAngle={startAngle}
+          endAngle={endAngle}
+          fill={fill}
+          filter="url(#hover-glow)"
+        />
 
-export default function SentimentPieChart({ newsData }: SentimentPieChartProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  const onPieEnter = (_: any, index: number) => {
-    setActiveIndex(index);
+        {/* Label */}
+        <text
+          x={cx + (outerRadius + 10) * cos}
+          y={cy + liftY + (outerRadius + 10) * sin}
+          textAnchor={cos >= 0 ? "start" : "end"}
+          fill="#ffffff"
+          fontWeight={700}
+          fontSize={14}
+        >
+          {payload.name}
+        </text>
+        <text
+          x={cx + (outerRadius + 10) * cos}
+          y={cy + liftY + (outerRadius + 30) * sin}
+          textAnchor={cos >= 0 ? "start" : "end"}
+          fill="#cccccc"
+          fontSize={13}
+        >
+          {`${(percent * 100).toFixed(0)}%`}
+        </text>
+      </g>
+    );
   };
 
-  const { chartData, totalValue } = useMemo(() => {
-    if (!newsData) return { chartData: [], totalValue: 0 };
+
+export default function SentimentPieChart({ newsData }: SentimentPieChartProps) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [liftAmount, setLiftAmount] = useState(0);
+
+  const chartData = useMemo(() => {
+    if (!newsData) return [];
     const counts: Record<'Positive' | 'Neutral' | 'Negative', number> = { Positive: 0, Neutral: 0, Negative: 0 };
     newsData.forEach(article => {
       if (counts[article.sentiment] !== undefined) {
@@ -107,16 +95,23 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
       }
     });
 
-    const data = [
-      { name: 'Positive', value: counts.Positive, ...sentimentConfig.Positive },
-      { name: 'Neutral', value: counts.Neutral, ...sentimentConfig.Neutral },
-      { name: 'Negative', value: counts.Negative, ...sentimentConfig.Negative },
+    return [
+      { name: 'Positive', value: counts.Positive, color: sentimentConfig.Positive.color },
+      { name: 'Neutral', value: counts.Neutral, color: sentimentConfig.Neutral.color },
+      { name: 'Negative', value: counts.Negative, color: sentimentConfig.Negative.color },
     ].filter(d => d.value > 0);
-    
-    const total = data.reduce((sum, item) => sum + item.value, 0);
-
-    return { chartData: data, totalValue: total };
   }, [newsData]);
+
+  const handleMouseEnter = (_: any, index: number) => {
+    setActiveIndex(index);
+    setLiftAmount(-10); // slice lifts up
+  };
+
+  const handleMouseLeave = () => {
+    setActiveIndex(null);
+    // Smoothly lower the slice
+    setLiftAmount(0);
+  };
 
   if (newsData.length === 0) {
     return null;
@@ -131,68 +126,32 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
         </CardTitle>
         <CardDescription>Breakdown of news article sentiment.</CardDescription>
       </CardHeader>
-      <CardContent className="p-0 sm:p-0 md:p-0 lg:p-0">
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4 p-4">
-              {/* Pie chart */}
-              <div className="w-full md:w-2/3 h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <defs>
-                      {chartData.map((entry, index) => (
-                        <linearGradient
-                          key={`grad-${index}`}
-                          id={`grad-${index}`}
-                          x1="0%" y1="0%" x2="100%" y2="100%"
-                        >
-                          <stop offset="0%" stopColor={entry.color1} />
-                          <stop offset="100%" stopColor={entry.color2} />
-                        </linearGradient>
-                      ))}
-                    </defs>
-                    <Pie
-                        data={chartData}
-                        dataKey="value"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={90}
-                        paddingAngle={3}
-                        activeIndex={activeIndex}
-                        activeShape={renderActiveShape}
-                        onMouseEnter={onPieEnter}
-                        isAnimationActive={true}
-                    >
-                      {chartData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={`url(#grad-${index})`}
-                          stroke="none"
-                        />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Legend */}
-              <div className="flex flex-col items-start justify-center space-y-3 w-full md:w-1/3">
-                {chartData.map((item, index) => {
-                  const percentage = totalValue > 0 ? ((item.value / totalValue) * 100).toFixed(0) : 0;
-                  return (
-                    <div key={index} className="flex items-center space-x-3 text-sm">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{
-                          background: `linear-gradient(135deg, ${item.color1}, ${item.color2})`,
-                        }}
-                      ></div>
-                      <span className="font-semibold text-foreground">{item.name}</span>
-                      <span className="text-muted-foreground font-mono">{percentage}%</span>
-                    </div>
-                  );
-                })}
-              </div>
-          </div>
+      <CardContent>
+          <div className="flex items-center justify-center rounded-2xl p-0">
+            <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                <Pie
+                    data={chartData}
+                    dataKey="value"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={80}
+                    outerRadius={120}
+                    paddingAngle={3}
+                    activeIndex={activeIndex ?? undefined}
+                    activeShape={(props) => renderActiveShape({ ...props, liftY: liftAmount })}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                    isAnimationActive={true}
+                    animationDuration={600}
+                >
+                    {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                    ))}
+                </Pie>
+                </PieChart>
+            </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   );
