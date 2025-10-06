@@ -1,4 +1,3 @@
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -21,6 +20,11 @@ const axiosOptions = {
 };
 
 async function resolveTicker(query: string): Promise<string> {
+  const directTickerRegex = /^[A-Z]{1,5}(\.[A-Z]{2})?$/;
+  if (directTickerRegex.test(query)) {
+    return query;
+  }
+
   // 1️⃣ Try direct ticker first
   try {
     const url = `https://finance.yahoo.com/quote/${query}`;
