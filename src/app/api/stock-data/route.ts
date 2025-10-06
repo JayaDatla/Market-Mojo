@@ -2,6 +2,10 @@
 import {NextRequest, NextResponse} from 'next/server';
 import fetch from 'node-fetch';
 
+// This is a legacy GET handler that is no longer called by the main dashboard,
+// but is kept for potential other uses or direct API access.
+// The main dashboard now uses Server Actions for better performance.
+
 // ------------------ Utility: Date Range ------------------
 
 function getUnixTimestamps(daysAgo: number): {start: number; end: number} {
@@ -40,7 +44,7 @@ async function searchYahooFinance(query: string) {
 
 async function fetchChartData(ticker: string, days = 30) {
   const {start, end} = getUnixTimestamps(days);
-  const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+  const apiUrl = `https://query1.finance.chart.yahoo.com/v8/finance/chart/${encodeURIComponent(
     ticker
   )}?period1=${start}&period2=${end}&interval=1d`;
 

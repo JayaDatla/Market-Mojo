@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useCallback, useTransition, useEffect } from 'react';
-import { fetchAndAnalyzeNews, fetchChartData } from '@/app/actions';
+import { fetchAndAnalyzeNews, fetchChartData, searchYahooFinance } from '@/app/actions';
 import type { Ticker, TickerAnalysisOutput, PriceData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
@@ -79,12 +79,14 @@ const calculateTrend = (data: PriceData[]): 'Up' | 'Down' | 'Neutral' => {
 export default function MarketMojoDashboard() {
   const [userInput, setUserInput] = useState('');
   const [analysisResult, setAnalysisResult] = useState<TickerAnalysisOutput | null>(null);
+  const [potentialTickers, setPotentialTickers] = useState<Ticker[]>([]);
   const [selectedTicker, setSelectedTicker] = useState<Ticker | null>(null);
   const [priceData, setPriceData] = useState<PriceData[]>([]);
   const [priceTrend, setPriceTrend] = useState<'Up' | 'Down' | 'Neutral'>('Neutral');
-  const [isHistoryLoading, setHistoryLoading] = useState(false);
+  
+  const [isSearching, startSearchTransition] = useTransition();
+  const [isAnalyzing, startAnalysisTransition] = useTransition();
 
-  const [isAnalyzing, startTransition] = useTransition();
   const [hasSearched, setHasSearched] = useState(false);
   const { toast } = useToast();
 
@@ -98,79 +100,94 @@ export default function MarketMojoDashboard() {
   }, [priceData]);
 
 
-  const handleAnalysis = (input: string) => {
+  const resetState = () => {
+    setHasSearched(true);
+    setAnalysisResult(null);
+    setPotentialTickers([]);
+    setSelectedTicker(null);
+    setPriceData([]);
+  };
+
+  const handleSearch = (input: string) => {
     if (!input) return;
 
-    startTransition(async () => {
-      setHasSearched(true);
-      setAnalysisResult(null);
-      setSelectedTicker(null);
-      setPriceData([]);
+    startSearchTransition(async () => {
+      resetState();
+      try {
+        const tickers = await searchYahooFinance(input);
+        
+        if (tickers.length === 0) {
+          // If no tickers found, we can still try a general sentiment analysis
+          handleAnalysis(input);
+        } else if (tickers.length === 1) {
+          // If one ticker found, proceed to full analysis
+          handleAnalysis(input, tickers[0]);
+        } else {
+          // If multiple tickers found, ask user to select
+          setPotentialTickers(tickers);
+        }
 
-      const analysisData = await fetchAndAnalyzeNews(input);
+      } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Search Failed', description: e.message });
+        setPotentialTickers([]);
+      }
+    });
+  };
+
+  const handleAnalysis = (input: string, ticker?: Ticker) => {
+    startAnalysisTransition(async () => {
+      // If a ticker is confirmed, we can already set it and fetch price data
+      if (ticker && ticker.ticker !== 'PRIVATE') {
+        setSelectedTicker(ticker);
+        setPotentialTickers([]); // Clear potential tickers since one is selected
+        fetchChartData(ticker.ticker).then(setPriceData).catch(e => {
+            console.warn(`Historical data fetch failed for ${ticker.ticker}:`, e.message);
+            toast({
+              variant: 'default',
+              title: 'Historical Data Notice',
+              description: `Could not fetch price data for ${ticker.ticker}. This can happen for some symbols.`,
+            });
+            setPriceData([]); // Ensure price data is cleared on failure
+        });
+      }
+
+      const analysisData = await fetchAndAnalyzeNews(input, ticker);
+      
       setAnalysisResult(analysisData);
-
-      if (analysisData?.error) {
+       if (analysisData?.error) {
         toast({
           variant: 'destructive',
           title: 'Analysis Failed',
-          description: analysisData.error || 'No analysis could be performed for this input.',
+          description: analysisData.error,
         });
-        return;
-      }
-
-      if (analysisData?.tickers && analysisData.tickers.length === 1) {
-        const firstTicker = analysisData.tickers[0];
-        // If there's only one ticker, select it automatically
-        handleTickerSelection(firstTicker);
       }
     });
   };
   
-  const handleTickerSelection = async (ticker: Ticker) => {
-    setSelectedTicker(ticker);
-    setPriceData([]);
-    
-    if (ticker.ticker !== 'PRIVATE') {
-      setHistoryLoading(true);
-      try {
-        // Use the more direct fetchChartData function
-        const historyData = await fetchChartData(ticker.ticker);
-        if (historyData) {
-          setPriceData(historyData);
-        }
-      } catch (e: any) {
-        console.warn(`Historical data fetch failed for ${ticker.ticker}:`, e.message);
-        toast({
-          variant: 'default',
-          title: 'Historical Data Notice',
-          description: `Could not fetch price data for ${ticker.ticker}. This can happen for some symbols.`,
-        });
-      } finally {
-        setHistoryLoading(false);
-      }
-    }
+  const handleTickerSelection = (ticker: Ticker) => {
+    // A ticker has been selected, now trigger the full analysis with it
+    handleAnalysis(userInput, ticker);
   };
 
 
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setUserInput(tickerToAnalyze);
-    handleAnalysis(tickerToAnalyze);
+    handleSearch(tickerToAnalyze);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleViewTicker = () => {
     if (userInput) {
-      handleAnalysis(userInput);
+      handleSearch(userInput);
     }
   };
 
-  const isLoading = isAnalyzing;
+  const isLoading = isSearching || isAnalyzing;
   
-  const showSentimentAnalysis = hasSearched && !isLoading && analysisResult && analysisResult.articles && analysisResult.articles.length > 0;
-  const showDisambiguation = hasSearched && !isLoading && analysisResult?.tickers && analysisResult.tickers.length > 1 && !selectedTicker;
+  const showSentimentAnalysis = analysisResult && analysisResult.articles && analysisResult.articles.length > 0;
+  const showDisambiguation = potentialTickers.length > 1;
   const showPriceChart = selectedTicker && priceData.length > 0;
-  const showNoResults = hasSearched && !isLoading && (!analysisResult || !analysisResult.tickers || analysisResult.tickers.length === 0);
+  const showNoResults = hasSearched && !isLoading && !showDisambiguation && !showSentimentAnalysis;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -197,32 +214,38 @@ export default function MarketMojoDashboard() {
             </div>
         </div>
         
-        {isLoading && !analysisResult ? (
+        {isSearching && !analysisResult ? (
           <div className="text-center py-16">
             <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
-            <p className="text-muted-foreground mt-4">Analyzing {userInput}...</p>
+            <p className="text-muted-foreground mt-4">Searching for {userInput}...</p>
           </div>
         ) : hasSearched ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
 
-              {showDisambiguation && analysisResult.tickers && (
-                <TickerSelector tickers={analysisResult.tickers} onSelect={handleTickerSelection} />
+              {showDisambiguation && (
+                <TickerSelector tickers={potentialTickers} onSelect={handleTickerSelection} />
               )}
 
-              {isHistoryLoading ? (
-                <div className="h-[365px] bg-card border-border/50 rounded-xl flex items-center justify-center">
-                  <Loader2 className="animate-spin h-8 w-8 text-primary" />
+              {isAnalyzing && !selectedTicker && (
+                 <div className="text-center py-16">
+                    <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
+                    <p className="text-muted-foreground mt-4">Analyzing sentiment...</p>
                 </div>
-              ) : showPriceChart && selectedTicker ? (
+              )}
+              
+              {showPriceChart && selectedTicker ? (
                  <HistoricalPriceChart 
                   priceData={priceData} 
                   priceTrend={priceTrend}
                   currency={selectedTicker?.currency}
                   exchange={selectedTicker?.exchange || ''}
                 />
-              ): null}
-
+              ) : selectedTicker && isAnalyzing ? (
+                 <div className="h-[365px] bg-card border-border/50 rounded-xl flex items-center justify-center">
+                  <Loader2 className="animate-spin h-8 w-8 text-primary" />
+                </div>
+              ) : null}
 
               {showSentimentAnalysis && analysisResult.analysis_summary ? (
                   <>
@@ -233,7 +256,7 @@ export default function MarketMojoDashboard() {
                     {showPriceChart && <MojoSynthesis sentimentAnalysis={analysisResult.analysis_summary} priceTrend={priceTrend} />}
                     <NewsFeed newsData={analysisResult.articles || []} />
                   </>
-                ) : isLoading ? (
+                ) : isAnalyzing ? (
                      <div className="space-y-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <Skeleton className="h-[270px] rounded-xl" />
@@ -268,7 +291,7 @@ export default function MarketMojoDashboard() {
             </div>
             <div className="space-y-8 lg:sticky lg:top-24 self-start">
                <StaticAnalysis 
-                isLoading={isLoading && !analysisResult}
+                isLoading={isLoading}
                 analysisData={analysisResult?.industryAnalysis} 
                 companyName={analysisResult?.company}
               />
