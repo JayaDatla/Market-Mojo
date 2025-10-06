@@ -10,6 +10,7 @@ import { Frown, Meh, Smile } from 'lucide-react';
 interface SentimentChartsProps {
   newsData: NewsArticle[];
   priceData?: PriceData[];
+  currency?: string;
 }
 
 const COLORS = {
@@ -23,12 +24,19 @@ const ICONS: Record<string, React.ElementType> = {
   Negative: Frown,
 };
 
-const PriceTooltip = ({ active, payload, label }: any) => {
+const PriceTooltip = ({ active, payload, label, currency }: any) => {
   if (active && payload && payload.length) {
+     const formattedPrice = new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currency || 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(payload[0].value);
+
     return (
       <div className="p-2 bg-background/80 border border-border/50 rounded-lg shadow-lg">
         <p className="label text-sm text-muted-foreground">{`${label}`}</p>
-        <p className="intro text-base font-bold text-foreground">{`Price: $${payload[0].value.toFixed(2)}`}</p>
+        <p className="intro text-base font-bold text-foreground">{`Price: ${formattedPrice}`}</p>
       </div>
     );
   }
@@ -36,7 +44,7 @@ const PriceTooltip = ({ active, payload, label }: any) => {
 };
 
 
-export default function SentimentCharts({ newsData, priceData }: SentimentChartsProps) {
+export default function SentimentCharts({ newsData, priceData, currency = 'USD' }: SentimentChartsProps) {
   const { pieData, averageScore } = useMemo(() => {
     if (!newsData || newsData.length === 0) {
       return { pieData: [], averageScore: 0 };
@@ -66,6 +74,17 @@ export default function SentimentCharts({ newsData, priceData }: SentimentCharts
     return 'text-gray-400';
   };
 
+  const currencySymbol = useMemo(() => {
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency, currencyDisplay: 'narrowSymbol' })
+        .formatToParts(1)
+        .find(part => part.type === 'currency')?.value;
+    } catch (e) {
+      return '$'; // Fallback
+    }
+  }, [currency]);
+
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
       <Card className="md:col-span-3 bg-card border-border/50">
@@ -89,10 +108,10 @@ export default function SentimentCharts({ newsData, priceData }: SentimentCharts
                     domain={['dataMin - 10', 'dataMax + 10']}
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
-                    tickFormatter={(val) => `$${val}`}
+                    tickFormatter={(val) => `${currencySymbol}${val}`}
                     width={50}
                   />
-                  <Tooltip content={<PriceTooltip />} />
+                  <Tooltip content={<PriceTooltip currency={currency} />} />
                   <Area
                     type="monotone"
                     dataKey="price"

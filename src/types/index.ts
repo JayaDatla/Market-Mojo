@@ -9,6 +9,7 @@ export type NewsArticle = {
   sourceUri: string;
   timestamp: Timestamp;
   ticker: string;
+  currency?: string;
 };
 
 // This type now matches the structure of the JSON expected from Perplexity
@@ -19,6 +20,7 @@ export type ArticleAnalysis = {
   sentiment: 'Positive' | 'Negative' | 'Neutral';
   sentiment_score: number;
   ticker: string;
+  currency?: string;
 };
 
 // This type represents the direct output from the API call

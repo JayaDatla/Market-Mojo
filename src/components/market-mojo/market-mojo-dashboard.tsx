@@ -25,6 +25,7 @@ export default function MarketMojoDashboard() {
   const [priceData, setPriceData] = useState<PriceData[]>([]);
   const [rawApiData, setRawApiData] = useState<any>(null);
   const [analysisCache, setAnalysisCache] = useState<AnalysisCache>({});
+  const [currency, setCurrency] = useState<string>('USD');
   const [isAnalyzing, startTransition] = useTransition();
   const [hasSearched, setHasSearched] = useState(false);
   const [noResults, setNoResults] = useState(false);
@@ -41,6 +42,7 @@ export default function MarketMojoDashboard() {
       sourceUri: item.url,
       timestamp: { toDate: () => new Date() } as any,
       ticker: item.ticker.toUpperCase(),
+      currency: item.currency,
     }));
   };
 
@@ -52,10 +54,12 @@ export default function MarketMojoDashboard() {
     // Check cache first
     if (analysisCache[normalizedInput]) {
       const cached = analysisCache[normalizedInput];
-      setNewsData(processAnalysisResult(cached.analysis));
+      const articles = processAnalysisResult(cached.analysis);
+      setNewsData(articles);
       setPriceData(cached.prices);
       setRawApiData(cached.analysis.rawResponse);
-      setTicker(processAnalysisResult(cached.analysis)[0]?.ticker || normalizedInput);
+      setTicker(articles[0]?.ticker || normalizedInput);
+      setCurrency(articles[0]?.currency || 'USD');
       setHasSearched(true);
       setNoResults(false);
       toast({
@@ -79,12 +83,14 @@ export default function MarketMojoDashboard() {
       if (analysisResult && !analysisResult.error && analysisResult.analysis && analysisResult.analysis.length > 0) {
         const articles = processAnalysisResult(analysisResult);
         const identifiedTicker = articles[0].ticker;
+        const identifiedCurrency = articles[0].currency || 'USD';
         const historicalData = await fetchHistoricalData(identifiedTicker);
 
         setNewsData(articles);
         setPriceData(historicalData);
         setRawApiData(analysisResult.rawResponse);
         setTicker(identifiedTicker);
+        setCurrency(identifiedCurrency);
         setNoResults(false);
 
         // Store in cache
@@ -169,7 +175,7 @@ export default function MarketMojoDashboard() {
         ) : showDashboard ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              <SentimentCharts newsData={newsData} priceData={priceData} />
+              <SentimentCharts newsData={newsData} priceData={priceData} currency={currency} />
               <InvestmentSuggestion newsData={newsData} priceData={priceData} />
               <NewsFeed newsData={newsData.slice(0, 5)} />
             </div>
