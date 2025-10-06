@@ -26,7 +26,7 @@ export default function Header() {
         <Link href="/" className="text-xl md:text-2xl font-bold text-foreground tracking-tight hover:text-primary transition-colors">
           Market Mojo
         </Link>
-        <div className="flex items-center gap-2 md:gap-4 text-sm">
+        <div className="flex items-center gap-2 sm:gap-4 text-sm">
           <Link href="https://github.com/FirebaseExtended/studio" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <Github className="h-5 w-5" />
             <span className="hidden sm:inline text-xs">GitHub</span>
@@ -41,18 +41,18 @@ export default function Header() {
               </span>
               <Button variant="ghost" size="sm" onClick={handleLogout} className="flex items-center gap-2 text-muted-foreground">
                 <LogOut className="h-4 w-4" />
-                Logout
+                <span className="hidden sm:inline">Logout</span>
               </Button>
             </>
           ) : (
-            <>
+            <div className="flex items-center gap-1 sm:gap-2">
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/login">Login</Link>
               </Button>
               <Button size="sm" asChild>
                 <Link href="/signup">Sign Up</Link>
               </Button>
-            </>
+            </div>
           )}
         </div>
       </div>

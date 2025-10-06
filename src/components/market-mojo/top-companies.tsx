@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 interface TopCompaniesProps {
@@ -19,6 +19,7 @@ const topCompanies = [
   { name: 'Broadcom', ticker: 'AVGO' },
   { name: 'JPMorgan Chase', ticker: 'JPM' },
   { name: 'Tesla', ticker: 'TSLA' },
+  { name: 'Roche', ticker: 'RHHBY' },
 ];
 
 export default function TopCompanies({ onCompanySelect }: TopCompaniesProps) {
@@ -26,10 +27,10 @@ export default function TopCompanies({ onCompanySelect }: TopCompaniesProps) {
     <Card className="bg-card border-border/50">
       <CardHeader>
         <CardTitle>Top Global Companies</CardTitle>
+        <CardDescription>Select a company to begin sentiment analysis.</CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-muted-foreground mb-6">Select a company to begin sentiment analysis.</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
           {topCompanies.map((company) => (
             <Button
               key={company.ticker}
@@ -37,8 +38,8 @@ export default function TopCompanies({ onCompanySelect }: TopCompaniesProps) {
               className="justify-start text-left h-auto py-3 px-4 flex flex-col items-start hover:bg-accent hover:text-accent-foreground"
               onClick={() => onCompanySelect(company.ticker)}
             >
-              <span className="font-semibold text-base text-foreground">{company.name}</span>
-              <span className="text-sm text-muted-foreground">{company.ticker}</span>
+              <span className="font-semibold text-sm sm:text-base text-foreground">{company.name}</span>
+              <span className="text-xs sm:text-sm text-muted-foreground">{company.ticker}</span>
             </Button>
           ))}
         </div>
@@ -46,5 +47,3 @@ export default function TopCompanies({ onCompanySelect }: TopCompaniesProps) {
     </Card>
   );
 }
-
-    

@@ -99,10 +99,10 @@ export default function MarketMojoDashboard() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
-      <div className="container mx-auto px-4 py-8 flex-grow">
-        <div className="max-w-3xl mx-auto mb-12 text-center">
-            <h2 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-400 mb-4 tracking-tighter animate-gradient-x">Market Sentiment Analyzer</h2>
-            <p className="text-lg text-muted-foreground">Enter a stock ticker or company name to run a real-time news sentiment analysis.</p>
+      <main className="container mx-auto px-4 sm:px-6 py-8 flex-grow">
+        <div className="max-w-3xl mx-auto mb-8 sm:mb-12 text-center">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-400 mb-4 tracking-tighter animate-gradient-x">Market Sentiment Analyzer</h1>
+            <p className="text-md sm:text-lg text-muted-foreground">Enter a stock ticker or company name to run a real-time news sentiment analysis.</p>
             <div className="mt-6 max-w-xl mx-auto flex items-center gap-2">
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -112,22 +112,22 @@ export default function MarketMojoDashboard() {
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleViewTicker()}
-                  className="bg-background/50 border-border/50 text-base pl-10"
+                  className="bg-background/50 border-border/50 text-base pl-10 h-11"
                 />
               </div>
-              <Button onClick={handleViewTicker} disabled={isLoading || !userInput} className="px-6">
+              <Button onClick={handleViewTicker} disabled={isLoading || !userInput} className="px-6 h-11">
                 {isLoading ? <Loader2 className="animate-spin" /> : 'Analyze'}
               </Button>
             </div>
         </div>
 
-        {hasSearched && !isLoading && analysisResult?.rawResponse && (
+        {isAnalyzing && (
           <Accordion type="single" collapsible className="w-full mb-8 max-w-3xl mx-auto">
             <AccordionItem value="item-1">
               <AccordionTrigger>View Raw API Response</AccordionTrigger>
               <AccordionContent>
                 <pre className="p-4 bg-muted rounded-md text-xs overflow-x-auto">
-                  <code>{JSON.stringify(analysisResult.rawResponse, null, 2)}</code>
+                  <code>{analysisResult ? JSON.stringify(analysisResult.rawResponse, null, 2) : "Loading..."}</code>
                 </pre>
               </AccordionContent>
             </AccordionItem>
@@ -156,11 +156,9 @@ export default function MarketMojoDashboard() {
                   <NewsFeed newsData={selectedTickerData.articles} />
               </>
             </div>
-            <div className="space-y-8">
-              <div className="sticky top-24 space-y-8">
-                  <StaticAnalysis ticker={displayTicker} />
-                  <TopCompanies onCompanySelect={handleCompanySelect} />
-              </div>
+            <div className="space-y-8 lg:sticky lg:top-24 self-start">
+              <StaticAnalysis ticker={displayTicker} />
+              <TopCompanies onCompanySelect={handleCompanySelect} />
             </div>
           </div>
         ) : showNoResults ? (
@@ -177,7 +175,7 @@ export default function MarketMojoDashboard() {
             <TopCompanies onCompanySelect={handleCompanySelect} />
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

@@ -64,8 +64,8 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <Card className="w-full max-w-md mx-4">
+    <div className="flex items-center justify-center min-h-screen bg-background p-4 sm:p-6">
+      <Card className="w-full max-w-md mx-auto">
         <CardHeader>
           <CardTitle className="text-2xl text-center">Create an Account</CardTitle>
         </CardHeader>
@@ -99,20 +99,22 @@ export default function SignUpPage() {
                           {...field}
                         />
                       </FormControl>
-                      <div
+                      <button
+                        type="button"
                         className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
                         onMouseDown={() => setShowPassword(true)}
                         onMouseUp={() => setShowPassword(false)}
                         onMouseLeave={() => setShowPassword(false)}
                         onTouchStart={() => setShowPassword(true)}
                         onTouchEnd={() => setShowPassword(false)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
                       >
                         {showPassword ? (
                           <EyeOff className="h-5 w-5 text-gray-400 cursor-pointer" />
                         ) : (
                           <Eye className="h-5 w-5 text-gray-400 cursor-pointer" />
                         )}
-                      </div>
+                      </button>
                     </div>
                     <FormMessage />
                   </FormItem>
