@@ -4,7 +4,7 @@
 import type { TickerAnalysisOutput, ArticleAnalysis } from '@/types';
 
 const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
-const PERPLEXITY_MODEL = "sonar-medium-online";
+const PERPLEXITY_MODEL = "sonar";
 
 const generatePrompt = (tickerOrName: string) => `
 You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
