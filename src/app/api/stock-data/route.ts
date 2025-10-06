@@ -1,7 +1,6 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import axios from "axios";
 import * as cheerio from "cheerio";
 import dayjs from "dayjs";
 
@@ -10,8 +9,9 @@ const HEADERS = { "User-Agent": "Mozilla/5.0" };
 async function isDirectTicker(symbol: string): Promise<boolean> {
   try {
     const url = `https://finance.yahoo.com/quote/${symbol}`;
-    const res = await axios.get(url, { headers: HEADERS });
-    return res.status === 200 && !res.data.includes("Quote Lookup");
+    const res = await fetch(url, { headers: HEADERS });
+    const text = await res.text();
+    return res.ok && !text.includes("Quote Lookup");
   } catch {
     return false;
   }
@@ -20,8 +20,9 @@ async function isDirectTicker(symbol: string): Promise<boolean> {
 async function findTicker(query: string): Promise<{ symbol: string; name: string; exchange: string }> {
   const encoded = encodeURIComponent(query);
   const searchUrl = `https://finance.yahoo.com/lookup?s=${encoded}`;
-  const res = await axios.get(searchUrl, { headers: HEADERS });
-  const $ = cheerio.load(res.data);
+  const res = await fetch(searchUrl, { headers: HEADERS });
+  const text = await res.text();
+  const $ = cheerio.load(text);
 
   const rows = $("table tbody tr");
   if (rows.length === 0) throw new Error(`No results found for '${query}'`);
@@ -45,8 +46,9 @@ async function findTicker(query: string): Promise<{ symbol: string; name: string
 async function getCurrency(ticker: string): Promise<string> {
   try {
     const url = `https://finance.yahoo.com/quote/${ticker}`;
-    const res = await axios.get(url, { headers: HEADERS });
-    const match = res.data.match(/Currency in (\w+)/);
+    const res = await fetch(url, { headers: HEADERS });
+    const text = await res.text();
+    const match = text.match(/Currency in (\w+)/);
     return match ? match[1] : "USD";
   } catch (error) {
     console.warn(`Could not fetch currency for ${ticker}, defaulting to USD.`, error);
@@ -59,8 +61,9 @@ async function fetchLast30Days(ticker: string): Promise<any[]> {
   const start = dayjs().subtract(30, "day").unix();
 
   const url = `https://finance.yahoo.com/quote/${ticker}/history?period1=${start}&period2=${end}`;
-  const res = await axios.get(url, { headers: HEADERS });
-  const $ = cheerio.load(res.data);
+  const res = await fetch(url, { headers: HEADERS });
+  const text = await res.text();
+  const $ = cheerio.load(text);
 
   const rows = $("table tbody tr");
   const data: any[] = [];
@@ -77,6 +80,7 @@ async function fetchLast30Days(ticker: string): Promise<any[]> {
   });
 
   if (data.length === 0) {
+      // This is important. If the table is empty or not found, we throw.
       throw new Error(`No historical data found for ${ticker}`);
   }
   
