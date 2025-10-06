@@ -69,25 +69,7 @@ async function fetchChartData(ticker: string, days = 30) {
   return historicalData.filter(d => d.open !== null);
 }
 
-// ------------------ Step 3: Main Auto Function ------------------
-
-export async function fetchHistoricalDataAuto(
-  companyNameOrTicker: string,
-  days = 30
-) {
-  const searchResult = await searchYahooFinance(companyNameOrTicker);
-  const history = await fetchChartData(searchResult.symbol, days);
-
-  return {
-    company: searchResult.shortname,
-    ticker: searchResult.symbol,
-    exchange: searchResult.exchange,
-    country: searchResult.country,
-    data: history,
-  };
-}
-
-
+// This GET handler remains available for other potential uses but is not called by the main dashboard.
 export async function GET(request: NextRequest) {
   const {searchParams} = new URL(request.url);
   const ticker = searchParams.get('ticker'); // This is the user's input
@@ -102,8 +84,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await fetchHistoricalDataAuto(ticker);
-    // The new script nests the data, so we return result.data
+    const searchResult = await searchYahooFinance(ticker);
+    const history = await fetchChartData(searchResult.symbol, 30);
+    const result = {
+        company: searchResult.shortname,
+        ticker: searchResult.symbol,
+        exchange: searchResult.exchange,
+        country: searchResult.country,
+        data: history,
+    };
     return NextResponse.json(result.data);
   } catch (error: any) {
     console.error(`Error in /api/stock-data for ticker "${ticker}":`, error.message);

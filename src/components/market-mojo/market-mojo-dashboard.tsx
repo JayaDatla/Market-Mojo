@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useCallback, useTransition, useEffect } from 'react';
-import { fetchAndAnalyzeNews } from '@/app/actions';
+import { fetchAndAnalyzeNews, fetchHistoricalDataAuto } from '@/app/actions';
 import type { TickerAnalysis, TickerAnalysisOutput, PriceData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
@@ -108,30 +108,26 @@ export default function MarketMojoDashboard() {
 
       // --- Parallel Data Fetching ---
       const analysisPromise = fetchAndAnalyzeNews(input);
-      const historyPromise = fetch(`/api/stock-data?ticker=${encodeURIComponent(input)}`);
+      const historyPromise = fetchHistoricalDataAuto(input);
 
-      const [analysisResult, historyResponse] = await Promise.all([
+      const [analysisResult, historyResult] = await Promise.all([
         analysisPromise,
-        historyPromise
+        historyPromise.catch(e => {
+            console.warn(`Dynamic historical data fetch failed for ${input}:`, e.message);
+            toast({
+                variant: 'default',
+                title: 'Historical Data Notice',
+                description: `Could not fetch historical price data for ${input}.`,
+            });
+            return null; // Return null on failure to not break Promise.all
+        })
       ]);
 
       // --- Process History Data First (for immediate UI update) ---
-      if (historyResponse.ok) {
-        const historyResult = await historyResponse.json();
-        if (historyResult && historyResult.length > 0) {
-            setPriceData(historyResult);
-        } else {
-            setPriceData([]);
-        }
+      if (historyResult && historyResult.data && historyResult.data.length > 0) {
+        setPriceData(historyResult.data);
       } else {
-        const err = await historyResponse.json();
-        console.warn(`Dynamic historical data fetch failed for ${input}:`, err.error);
         setPriceData([]);
-        toast({
-            variant: 'default',
-            title: 'Historical Data Notice',
-            description: `Could not fetch historical price data for ${input}.`,
-        });
       }
       
       // --- Process Analysis Data ---
@@ -151,6 +147,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setUserInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleViewTicker = () => {
