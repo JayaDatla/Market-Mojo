@@ -22,14 +22,16 @@ async function fetchHistoricalData(ticker: string): Promise<PriceData[]> {
     try {
         const response = await fetch(`/api/stock-data?ticker=${ticker}`);
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to fetch historical data');
+            // Don't throw, just log and return empty array so the app doesn't crash
+            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+            console.error(`Failed to fetch historical data for ${ticker}:`, errorData.error || response.statusText);
+            return [];
         }
         const data = await response.json();
-        return data.historicalData;
+        return data.historicalData || [];
     } catch (error) {
         console.error('Error fetching historical data:', error);
-        return []; // Return empty array on failure
+        return []; // Return empty array on any failure
     }
 }
 
