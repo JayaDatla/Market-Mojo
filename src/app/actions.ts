@@ -72,6 +72,11 @@ export async function fetchAndAnalyzeNews(
   userInput: string,
   validatedTicker?: Ticker,
 ): Promise<TickerAnalysisOutput> {
+  // Gracefully handle missing environment variable on the server
+  if (!process.env.PERPLEXITY_API_KEY) {
+    console.error("PERPLEXITY_API_KEY is not set in the environment variables.");
+    return { error: "The Perplexity AI API key is not configured on the server. Please check deployment settings." };
+  }
 
   const cacheKey = validatedTicker ? validatedTicker.ticker : userInput.trim().toUpperCase();
   const cachedEntry = analysisCache.get(cacheKey);
@@ -82,10 +87,6 @@ export async function fetchAndAnalyzeNews(
 
   const prompt = generatePrompt(userInput, validatedTicker);
   
-  if (!process.env.PERPLEXITY_API_KEY) {
-    throw new Error("PERPLEXITY_API_KEY is not set in the environment variables.");
-  }
-
   const headers = {
     "Content-Type": "application/json",
     "Authorization": `Bearer ${process.env.PERPLEXITY_API_KEY}`
