@@ -14,6 +14,7 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import InvestmentSuggestion from './investment-suggestion';
+import SentimentPieChart from './sentiment-pie-chart';
 
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
@@ -77,7 +78,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, []);
+  }, [handleAnalysis]);
 
   const handleViewTicker = () => {
     if (tickerInput) {
@@ -139,7 +140,10 @@ export default function MarketMojoDashboard() {
             <div className="lg:col-span-2 space-y-8">
               {newsData.length > 0 ? (
                 <>
-                  <InvestmentSuggestion newsData={newsData} />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <InvestmentSuggestion newsData={newsData} />
+                    <SentimentPieChart newsData={newsData} />
+                  </div>
                   <NewsFeed newsData={newsData.slice(0, 5)} />
                 </>
               ) : showNoResults ? (
