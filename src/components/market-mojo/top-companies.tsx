@@ -17,7 +17,7 @@ const topCompanies = [
   { name: 'Meta', ticker: 'META' },
   { name: 'Eli Lilly', ticker: 'LLY' },
   { name: 'Broadcom', ticker: 'AVGO' },
-  { name: 'JPMorgan Chase', ticker: 'JPM' },
+  { name: 'JPMorgan', ticker: 'JPM' },
   { name: 'Tesla', ticker: 'TSLA' },
   { name: 'Roche', ticker: 'RHHBY' },
 ];
@@ -30,7 +30,7 @@ export default function TopCompanies({ onCompanySelect }: TopCompaniesProps) {
         <CardDescription>Select a company to begin sentiment analysis.</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
           {topCompanies.map((company) => (
             <Button
               key={company.ticker}
@@ -38,7 +38,7 @@ export default function TopCompanies({ onCompanySelect }: TopCompaniesProps) {
               className="justify-start text-left h-auto py-3 px-4 flex flex-col items-start hover:bg-accent hover:text-accent-foreground"
               onClick={() => onCompanySelect(company.ticker)}
             >
-              <span className="font-semibold text-sm sm:text-base text-foreground">{company.name}</span>
+              <span className="font-semibold text-sm sm:text-base text-foreground truncate w-full">{company.name}</span>
               <span className="text-xs sm:text-sm text-muted-foreground">{company.ticker}</span>
             </Button>
           ))}

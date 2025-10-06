@@ -92,7 +92,7 @@ export default function InvestmentSuggestion({ tickerData }: InvestmentSuggestio
                 </div>
             </Badge>
         </div>
-        <p className="text-sm text-center text-muted-foreground">{investor_outlook}</p>
+        <p className="text-sm text-center text-muted-foreground break-words">{investor_outlook}</p>
 
         <div className="space-y-4">
              <div className="grid grid-cols-1 gap-4 text-center pt-2">

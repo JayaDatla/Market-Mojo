@@ -49,7 +49,7 @@ export const industryData: IndustryData = {
     industry: 'E-commerce & Cloud Computing',
     analysis: 'Amazon leads in e-commerce and cloud infrastructure (AWS). Its stock is influenced by consumer spending, digital advertising growth, and the continued expansion of its logistics and services network.',
     competitors: ['Walmart (WMT)', 'Microsoft (MSFT)', 'Alibaba (BABA)'],
-    historicalData: [{"date":"2024-04-29","close":175.00},{"date":"2024-04-30","close":175.00},{"date":"2024-05-01","close":179.00},{"date":"2024-05-02","close":184.70},{"date":"2024-05-03","close":186.42},{"date":"2024-05-06","close":188.80},{"date":"2024-05-07","close":188.76},{"date":"2024-05-08","close":188.00},{"date":"2024-05-09","close":189.50},{"date":"2024-05-10","close":187.48},{"date":"2024-05-13","close":186.57},{"date":"2024-05-14","close":187.07},{"date":"2024-05-15","close":185.99},{"date":"2024-05-16","close":183.63},{"date":"2024-05-17","close":184.39},{"date":"2024-05-20","close":183.54},{"date":"2024-05-21","close":183.15},{"date":"2024-05-22","close":183.13},{"date":"2024-05-23","close":181.05},{"date":"2024-05-24","close":180.75}],
+    historicalData: [{"date":"2024-04-29","close":175.00},{"date":"2024-04-30","close":175.00},{"date":"2024-05-01","close":179.00},{"date":"2024-05-02","close":184.70},{"date":"2024-05-03","close":186.42},{"date":"2024-05-06","close":188.80},{"date":"2024-05-07","close":188.76},{"date":"2024-05-08","close":188.00},{"date":"2024-05-09","close":189.50},{"date":"2024-05-10","close":187.48},{"date":"2024-05-13","close":186.57},{"date":"2024-05-14","close":187.07},{"date":"2024-05-15","close":185.99},{"date":"2024-05-16","close":183.63},{"date":"2024-05-17","close":184.39},{"date":"2024-05-20","close":183.54},{"date":"2024-05-21","close":183.15},{"date":"2S24-05-22","close":183.13},{"date":"2024-05-23","close":181.05},{"date":"2024-05-24","close":180.75}],
   },
   'NVDA': {
     industry: 'Semiconductors & AI',
@@ -81,6 +81,11 @@ export const industryData: IndustryData = {
     competitors: ['Bank of America (BAC)', 'Goldman Sachs (GS)', 'Morgan Stanley (MS)'],
     historicalData: [{"date":"2024-04-29","close":194.02},{"date":"2024-04-30","close":190.17},{"date":"2024-05-01","close":188.08},{"date":"2024-05-02","close":191.06},{"date":"2024-05-03","close":193.30},{"date":"2024-05-06","close":196.44},{"date":"2024-05-07","close":198.88},{"date":"2024-05-08","close":200.08},{"date":"2024-05-09","close":201.27},{"date":"2024-05-10","close":200.32},{"date":"2024-05-13","close":199.19},{"date":"2024-05-14","close":201.28},{"date":"2024-05-15","close":203.46},{"date":"2024-05-16","close":204.81},{"date":"2024-05-17","close":203.88},{"date":"2024-05-20","close":205.61},{"date":"2024-05-21","close":205.21},{"date":"2024-05-22","close":203.81},{"date":"2024-05-23","close":201.55},{"date":"2024-05-24","close":201.35}],
   },
+  'RHHBY': {
+    industry: 'Pharmaceuticals & Diagnostics',
+    analysis: 'Roche is a Swiss multinational healthcare company that operates under two divisions: Pharmaceuticals and Diagnostics. Its performance is driven by its strong portfolio of oncology drugs and leadership in in-vitro diagnostics.',
+    competitors: ['Novartis (NVS)', 'Pfizer (PFE)', 'Merck (MRK)'],
+  },
 };
 
 export default function StaticAnalysis({ ticker }: StaticAnalysisProps) {
@@ -111,7 +116,7 @@ export default function StaticAnalysis({ ticker }: StaticAnalysisProps) {
       <CardContent className="space-y-6">
         <div>
             <h4 className="font-semibold text-sm mb-2 text-muted-foreground">Sector Analysis</h4>
-            <p className="text-sm text-foreground/90">{data.analysis}</p>
+            <p className="text-sm text-foreground/90 break-words">{data.analysis}</p>
         </div>
         <div>
             <h4 className="font-semibold text-sm mb-3 text-muted-foreground">Major Competitors</h4>
@@ -128,5 +133,3 @@ export default function StaticAnalysis({ ticker }: StaticAnalysisProps) {
     </Card>
   );
 }
-
-    
