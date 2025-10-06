@@ -122,16 +122,16 @@ export async function fetchAndAnalyzeNews(
         return result;
     }
     
-    const jsonRegex = /(?:```json\s*)?(\{.*?\})/s;
+    const jsonRegex = /```json\s*([\s\S]*?)\s*```|({[\s\S]*})/;
     const match = content.match(jsonRegex);
 
-    if (!match || !match[1]) {
+    if (!match || (!match[1] && !match[2])) {
         console.error("No JSON object found in the API response:", content);
         const result: TickerAnalysisOutput = { error: "Failed to find valid JSON in the API's response.", rawResponse: content };
         return result;
     }
     
-    const cleanedContent = match[1];
+    const cleanedContent = match[1] || match[2];
 
     try {
       const parsedJson: TickerAnalysisOutput = JSON.parse(cleanedContent);
