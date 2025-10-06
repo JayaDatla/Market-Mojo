@@ -1,14 +1,14 @@
 
 'use client';
 
-import { useState, useCallback, useTransition } from 'react';
+import { useState, useCallback, useTransition, useEffect } from 'react';
 import { fetchAndAnalyzeNews } from '@/app/actions';
-import type { NewsArticle, TickerAnalysis, TickerAnalysisOutput, PriceData } from '@/types';
+import type { TickerAnalysis, TickerAnalysisOutput, PriceData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
 import NewsFeed from './news-feed';
-import StaticAnalysis, { industryData } from './static-analysis';
+import StaticAnalysis from './static-analysis';
 import TopCompanies from './top-companies';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -17,6 +17,26 @@ import InvestmentSuggestion from './investment-suggestion';
 import SentimentPieChart from './sentiment-pie-chart';
 import HistoricalPriceChart from './historical-price-chart';
 import MojoSynthesis from './mojo-synthesis';
+
+// This function can be defined outside the component as it doesn't depend on component state
+const calculateTrend = (data: PriceData[]): 'Up' | 'Down' | 'Neutral' => {
+    const n = data.length;
+    if (n < 2) return 'Neutral';
+
+    const points = data.map((d, i) => ({ x: i, y: d.close }));
+    const sumX = points.reduce((acc, p) => acc + p.x, 0);
+    const sumY = points.reduce((acc, p) => acc + p.y, 0);
+    const sumXY = points.reduce((acc, p) => acc + p.x * p.y, 0);
+    const sumXX = points.reduce((acc, p) => acc + p.x * p.x, 0);
+    
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const minPrice = Math.min(...data.map(d => d.close));
+
+    if (slope > 0.01 * minPrice) return 'Up';
+    if (slope < -0.01 * minPrice) return 'Down';
+    return 'Neutral';
+};
+
 
 export default function MarketMojoDashboard() {
   const [userInput, setUserInput] = useState('');
@@ -29,6 +49,16 @@ export default function MarketMojoDashboard() {
   const [hasSearched, setHasSearched] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (priceData && priceData.length > 0) {
+      const trend = calculateTrend(priceData);
+      setPriceTrend(trend);
+    } else {
+      setPriceTrend('Neutral');
+    }
+  }, [priceData]);
+
+
   const handleAnalysis = (input: string) => {
     if (!input) return;
 
@@ -37,17 +67,14 @@ export default function MarketMojoDashboard() {
       setAnalysisResult(null);
       setSelectedTickerData(null);
       setPriceData([]);
-      setPriceTrend('Neutral');
       
       const result = await fetchAndAnalyzeNews(input);
       setAnalysisResult(result);
 
       if (result && !result.error && result.tickers && result.tickers.length > 0) {
-        // Default to the first ticker returned by the analysis
         const primaryTickerData = result.tickers[0];
         setSelectedTickerData(primaryTickerData);
         
-        // Fetch historical data for the primary ticker
         try {
           const historyResponse = await fetch(`/api/stock-data?ticker=${encodeURIComponent(primaryTickerData.ticker)}`);
           
@@ -85,17 +112,13 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setUserInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, []);
+  }, [handleAnalysis]);
 
   const handleViewTicker = () => {
     if (userInput) {
       handleAnalysis(userInput);
     }
   };
-
-  const handleTrendCalculated = useCallback((trend: 'Up' | 'Down' | 'Neutral') => {
-    setPriceTrend(trend);
-  }, []);
 
   const isLoading = isAnalyzing;
   const showDashboard = hasSearched && !isLoading && selectedTickerData;
@@ -152,10 +175,9 @@ export default function MarketMojoDashboard() {
               <>
                   <HistoricalPriceChart 
                     priceData={priceData} 
-                    sentimentScore={selectedTickerData.analysis_summary.average_sentiment_score} 
+                    priceTrend={priceTrend}
                     currency={selectedTickerData.currency}
                     exchange={selectedTickerData.exchange}
-                    onTrendCalculated={handleTrendCalculated}
                   />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <InvestmentSuggestion tickerData={selectedTickerData} />

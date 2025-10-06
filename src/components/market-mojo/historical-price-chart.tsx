@@ -10,10 +10,9 @@ import { DropShadowFilter } from '@/components/ui/filters';
 
 interface HistoricalPriceChartProps {
     priceData: PriceData[];
-    sentimentScore: number;
+    priceTrend: 'Up' | 'Down' | 'Neutral';
     exchange: string;
     currency?: string;
-    onTrendCalculated: (trend: 'Up' | 'Down' | 'Neutral') => void;
 }
 
 const currencySymbolMap: { [key: string]: string } = {
@@ -31,8 +30,8 @@ const currencySymbolMap: { [key: string]: string } = {
     KRW: '₩',
 };
 
-// Linear regression to find the trend
-const calculateTrend = (data: {x: number; y: number}[]) => {
+// Linear regression to find the trend line for drawing
+const calculateTrendLine = (data: {x: number; y: number}[]) => {
     const n = data.length;
     if (n < 2) return { slope: 0, intercept: 0 };
     const sumX = data.reduce((acc, p) => acc + p.x, 0);
@@ -46,11 +45,10 @@ const calculateTrend = (data: {x: number; y: number}[]) => {
     return { slope, intercept };
 };
 
-export default function HistoricalPriceChart({ priceData, sentimentScore, exchange, currency = 'USD', onTrendCalculated }: HistoricalPriceChartProps) {
-    const { chartData, priceTrend, trendColor, TrendIcon, yAxisDomain } = useMemo(() => {
+export default function HistoricalPriceChart({ priceData, priceTrend, exchange, currency = 'USD' }: HistoricalPriceChartProps) {
+    const { chartData, trendColor, TrendIcon, yAxisDomain } = useMemo(() => {
         if (!priceData || priceData.length === 0) {
-            onTrendCalculated('Neutral');
-            return { chartData: [], priceTrend: 'Neutral', trendColor: 'text-gray-500', TrendIcon: Minus, yAxisDomain: [0, 100] };
+            return { chartData: [], trendColor: 'text-gray-500', TrendIcon: Minus, yAxisDomain: [0, 100] };
         }
 
         let minPrice = Infinity;
@@ -66,42 +64,36 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, exchan
             };
         });
 
-        const trendData = formattedData.map(d => ({ x: d.day, y: d.price }));
-        const trend = calculateTrend(trendData);
+        const trendLineData = formattedData.map(d => ({ x: d.day, y: d.price }));
+        const trend = calculateTrendLine(trendLineData);
         
         const fullChartData = formattedData.map(d => ({
             ...d,
             trend: trend.intercept + trend.slope * d.day
         }));
 
-        let pred: 'Up' | 'Down' | 'Neutral' = 'Neutral';
         let color = 'text-gray-500';
         let icon = Minus;
 
-        if (trend.slope > 0.01 * minPrice) { // Trend is significantly upward
-            pred = 'Up';
+        if (priceTrend === 'Up') {
             color = 'text-green-500';
             icon = TrendingUp;
-        } else if (trend.slope < -0.01 * minPrice) { // Trend is significantly downward
-            pred = 'Down';
+        } else if (priceTrend === 'Down') {
             color = 'text-red-500';
             icon = TrendingDown;
         }
-        
-        onTrendCalculated(pred);
 
         const padding = (maxPrice - minPrice) * 0.1; // 10% padding
         const yDomain: [number, number] = [Math.max(0, Math.floor(minPrice - padding)), Math.ceil(maxPrice + padding)];
 
         return { 
             chartData: fullChartData, 
-            priceTrend: pred, 
             trendColor: color, 
             TrendIcon: icon,
             yAxisDomain: yDomain
         };
 
-    }, [priceData, sentimentScore, onTrendCalculated]);
+    }, [priceData, priceTrend]);
 
     const getCurrencySymbol = (code: string) => currencySymbolMap[code] || `${code} `;
 
