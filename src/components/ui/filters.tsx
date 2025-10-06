@@ -13,7 +13,7 @@ export function DropShadowFilter({ id }: { id: string }) {
     <filter id={id} x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
       <feOffset in="blur" dx="2" dy="2" result="offsetBlur" />
-      <feFlood floodColor="#000" floodOpacity="0.3" result="offsetColor" />
+      <feFlood floodColor="hsl(var(--foreground))" floodOpacity="0.1" result="offsetColor" />
       <feComposite in="offsetColor" in2="offsetBlur" operator="in" result="offsetBlur" />
       <feMerge>
         <feMergeNode in="offsetBlur" />

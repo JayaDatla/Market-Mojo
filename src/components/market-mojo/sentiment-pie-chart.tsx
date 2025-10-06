@@ -63,7 +63,9 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
     if (!newsData) return [];
     const counts: Record<'Positive' | 'Neutral' | 'Negative', number> = { Positive: 0, Neutral: 0, Negative: 0 };
     newsData.forEach(article => {
-      counts[article.sentiment]++;
+      if (counts[article.sentiment] !== undefined) {
+        counts[article.sentiment]++;
+      }
     });
     return [
       { name: 'Positive', value: counts.Positive, color: 'hsl(142.1 76.2% 36.3%)' }, // Green
@@ -124,7 +126,7 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
                   background: "hsl(var(--background))",
                   borderColor: "hsl(var(--border))",
                   borderRadius: "var(--radius)",
-                  color: "#FFFFFF"
+                  color: "hsl(var(--foreground))"
                 }}
                 formatter={(value: number, name: string) => [`${value} articles`, name]}
               />
