@@ -9,7 +9,7 @@ import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
 import SentimentCharts from './sentiment-charts';
 import NewsFeed from './news-feed';
-import StaticAnalysis from './static-analysis';
+import StaticAnalysis, { industryData } from './static-analysis';
 import TopCompanies from './top-companies';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -17,23 +17,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import InvestmentSuggestion from './investment-suggestion';
 
 type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[], currency: string }>;
-
-async function fetchHistoricalData(ticker: string): Promise<{ historicalData: PriceData[], currency: string }> {
-    try {
-        const response = await fetch(`/api/stock-data?query=${encodeURIComponent(ticker)}`);
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
-            console.error(`Failed to fetch historical data for ${ticker}:`, errorData.error || response.statusText);
-            return { historicalData: [], currency: 'USD' };
-        }
-        const data = await response.json();
-        return { historicalData: data.historicalData || [], currency: data.currency || 'USD' };
-    } catch (e: any) {
-        console.error(`Exception while fetching historical data for ${ticker}:`, e.message);
-        return { historicalData: [], currency: 'USD' };
-    }
-}
-
 
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
@@ -100,13 +83,16 @@ export default function MarketMojoDashboard() {
         const articles = processAnalysisResult(analysisResult);
         const identifiedTicker = articles[0].ticker;
         
-        const { historicalData, currency: fetchedCurrency } = await fetchHistoricalData(identifiedTicker);
-        
+        // Use static historical data if available
+        const staticData = industryData[identifiedTicker];
+        const historicalData = staticData?.historicalData || [];
+        const fetchedCurrency = articles[0].currency || 'USD';
+
         if (historicalData.length === 0) {
             toast({
                 variant: "destructive",
                 title: 'Price Data Unavailable',
-                description: `Could not retrieve historical price data for ${identifiedTicker}. The chart may be empty.`
+                description: `Displaying analysis for ${identifiedTicker}, but live price data is not available for this ticker.`
             });
         }
 
@@ -114,7 +100,7 @@ export default function MarketMojoDashboard() {
         setPriceData(historicalData);
         setRawApiData(analysisResult.rawResponse);
         setTicker(identifiedTicker);
-        setCurrency(fetchedCurrency || 'USD');
+        setCurrency(fetchedCurrency);
         setNoResults(false);
         
         setAnalysisCache(prevCache => ({
@@ -138,7 +124,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, [handleAnalysis]);
+  }, []);
 
   const handleViewTicker = () => {
     if (tickerInput) {
