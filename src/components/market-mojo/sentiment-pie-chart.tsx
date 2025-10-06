@@ -28,16 +28,21 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
 
 export default function SentimentPieChart({ newsData }: SentimentPieChartProps) {
   const sentimentDistribution = useMemo(() => {
+    if (!newsData) return [];
     const counts = { Positive: 0, Neutral: 0, Negative: 0 };
     newsData.forEach(article => {
       counts[article.sentimentLabel]++;
     });
     return [
-      { name: 'Positive', value: counts.Positive, color: 'hsl(var(--chart-1))' },
-      { name: 'Neutral', value: counts.Neutral, color: 'hsl(var(--chart-2))' },
-      { name: 'Negative', value: counts.Negative, color: 'hsl(var(--destructive))' },
+      { name: 'Positive', value: counts.Positive, color: 'hsl(142.1 76.2% 36.3%)' }, // Green
+      { name: 'Neutral', value: counts.Neutral, color: 'hsl(240 4.9% 83.9%)' }, // Gray
+      { name: 'Negative', value: counts.Negative, color: 'hsl(0 62.8% 30.6%)' }, // Red (destructive)
     ].filter(d => d.value > 0);
   }, [newsData]);
+
+  if (newsData.length === 0) {
+    return null;
+  }
 
   return (
     <Card className="bg-card border-border/50">
