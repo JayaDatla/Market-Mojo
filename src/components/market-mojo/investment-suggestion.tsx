@@ -4,13 +4,13 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { NewsArticle } from '@/types';
+import type { NewsArticle, PriceData } from '@/types';
 import { TrendingUp, TrendingDown, Minus, ChevronsUp, ChevronUp, ChevronsDown, ChevronDown, Award } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface InvestmentSuggestionProps {
   newsData: NewsArticle[];
-  priceData?: { date: string; price: number }[];
+  priceData?: PriceData[];
 }
 
 type SuggestionLevel = 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';

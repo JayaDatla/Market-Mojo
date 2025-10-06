@@ -1,10 +1,10 @@
 
 'use server';
 
-import type { TickerAnalysisOutput } from '@/types';
+import type { TickerAnalysisOutput, ArticleAnalysis, PriceData } from '@/types';
 
-const API_URL = "https://api.perplexity.ai/chat/completions";
-const MODEL = "sonar";
+const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
+const PERPLEXITY_MODEL = "sonar";
 
 const generatePrompt = (tickerOrName: string) => `
 You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
@@ -42,14 +42,14 @@ export async function fetchAndAnalyzeNews(
   };
 
   const body = {
-    "model": MODEL,
+    "model": PERPLEXITY_MODEL,
     "messages": [
       {"role": "user", "content": prompt}
     ],
   };
 
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch(PERPLEXITY_API_URL, {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(body)
@@ -68,11 +68,10 @@ export async function fetchAndAnalyzeNews(
         return { error: "No content returned from the API." };
     }
     
-    // The response is often a JSON string within the content, sometimes with markdown
     const cleanedContent = content.replace(/```json\n|```/g, '').trim();
 
     try {
-      const analysis = JSON.parse(cleanedContent);
+      const analysis: ArticleAnalysis[] = JSON.parse(cleanedContent);
       return { analysis, rawResponse: data };
     } catch (e: any) {
       console.error("Failed to parse JSON from API response:", e);
@@ -84,5 +83,46 @@ export async function fetchAndAnalyzeNews(
     return {
       error: e.message || `An unexpected error occurred while analyzing ${tickerOrName}.`,
     };
+  }
+}
+
+export async function fetchHistoricalData(ticker: string): Promise<PriceData[]> {
+  const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+  if (!apiKey) {
+    throw new Error("ALPHA_VANTAGE_API_KEY is not set.");
+  }
+  
+  const aVUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&apikey=${apiKey}&outputsize=compact`;
+
+  try {
+    const response = await fetch(aVUrl);
+    if (!response.ok) {
+      throw new Error(`Alpha Vantage API request failed with status ${response.status}`);
+    }
+    const data = await response.json();
+    
+    if (data['Note']) {
+      console.warn('Alpha Vantage API limit reached:', data['Note']);
+      return [];
+    }
+
+    const timeSeries = data['Time Series (Daily)'];
+    if (!timeSeries) {
+      console.error('No time series data found for ticker:', ticker, data);
+      return [];
+    }
+    
+    const priceData: PriceData[] = Object.entries(timeSeries)
+      .map(([date, values]: [string, any]) => ({
+        date,
+        price: parseFloat(values['4. close']),
+      }))
+      .slice(0, 30) // Take the last 30 days
+      .reverse(); // Reverse to have oldest date first
+
+    return priceData;
+  } catch (error: any) {
+    console.error(`Failed to fetch historical data for ${ticker}:`, error);
+    return []; // Return empty array on error
   }
 }

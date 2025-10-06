@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useCallback, useTransition } from 'react';
-import { fetchAndAnalyzeNews } from '@/app/actions';
-import type { NewsArticle, TickerAnalysisOutput } from '@/types';
+import { fetchAndAnalyzeNews, fetchHistoricalData } from '@/app/actions';
+import type { NewsArticle, TickerAnalysisOutput, PriceData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
@@ -18,26 +18,11 @@ import InvestmentSuggestion from './investment-suggestion';
 
 type AnalysisCache = Record<string, TickerAnalysisOutput>;
 
-const generatePriceData = (base: number) => {
-  const data = [];
-  let currentDate = new Date();
-  currentDate.setDate(currentDate.getDate() - 30);
-  for (let i = 0; i < 30; i++) {
-    currentDate.setDate(currentDate.getDate() + 1);
-    const fluctuation = (Math.random() - 0.5) * (base * 0.05);
-    const price = base + fluctuation * i * 0.2 + Math.sin(i / 5) * 5;
-    data.push({
-      date: currentDate.toISOString().split('T')[0],
-      price: parseFloat(price.toFixed(2)),
-    });
-  }
-  return data;
-};
-
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
   const [tickerInput, setTickerInput] = useState('');
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
+  const [priceData, setPriceData] = useState<PriceData[]>([]);
   const [rawApiData, setRawApiData] = useState<any>(null);
   const [analysisCache, setAnalysisCache] = useState<AnalysisCache>({});
   const [isAnalyzing, startTransition] = useTransition();
@@ -51,6 +36,7 @@ export default function MarketMojoDashboard() {
     setHasSearched(true);
     setNoResults(false);
     setNewsData([]);
+    setPriceData([]);
     setRawApiData(null);
     setTicker(input);
 
@@ -97,10 +83,14 @@ export default function MarketMojoDashboard() {
           ...prevCache,
           [input]: { analysis: result?.analysis, rawResponse: result?.rawResponse },
         }));
-        // Set the ticker from the first result for consistency
-        if (articles.length > 0) {
-          setTicker(articles[0].ticker);
+        
+        const identifiedTicker = articles[0].ticker;
+        if (identifiedTicker) {
+          setTicker(identifiedTicker);
+          const historicalData = await fetchHistoricalData(identifiedTicker);
+          setPriceData(historicalData);
         }
+
       } else {
         const cachedData = analysisCache[input];
         if (cachedData && cachedData.analysis) {
@@ -111,8 +101,12 @@ export default function MarketMojoDashboard() {
             title: 'Live Analysis Failed',
             description: `Showing previously cached data for ${input}.`,
           });
-          if (articles.length > 0) {
-            setTicker(articles[0].ticker);
+          
+          const identifiedTicker = articles[0]?.ticker;
+          if (identifiedTicker) {
+            setTicker(identifiedTicker);
+            const historicalData = await fetchHistoricalData(identifiedTicker);
+            setPriceData(historicalData);
           }
         } else {
           setRawApiData(result);
@@ -139,7 +133,6 @@ export default function MarketMojoDashboard() {
   };
   
   const displayTicker = (newsData.length > 0 ? newsData[0].ticker : ticker).toUpperCase();
-  const currentPriceData = industryData[displayTicker]?.priceData ?? generatePriceData(100 + Math.random() * 400); // Generate placeholder if not found
   
   const isLoading = isAnalyzing;
   const showDashboard = newsData.length > 0 && hasSearched;
@@ -191,8 +184,8 @@ export default function MarketMojoDashboard() {
         ) : showDashboard ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              <SentimentCharts newsData={newsData} priceData={currentPriceData} />
-              <InvestmentSuggestion newsData={newsData} priceData={currentPriceData} />
+              <SentimentCharts newsData={newsData} priceData={priceData} />
+              <InvestmentSuggestion newsData={newsData} priceData={priceData} />
               <NewsFeed newsData={newsData.slice(0, 5)} />
             </div>
             <div className="space-y-8">

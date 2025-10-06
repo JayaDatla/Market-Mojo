@@ -4,12 +4,12 @@
 import { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import type { NewsArticle } from '@/types';
+import type { NewsArticle, PriceData } from '@/types';
 import { Frown, Meh, Smile } from 'lucide-react';
 
 interface SentimentChartsProps {
   newsData: NewsArticle[];
-  priceData?: { date: string; price: number }[];
+  priceData?: PriceData[];
 }
 
 const COLORS = {
@@ -71,7 +71,7 @@ export default function SentimentCharts({ newsData, priceData }: SentimentCharts
       <Card className="md:col-span-3 bg-card border-border/50">
         <CardHeader>
           <CardTitle>Historical Price (30-day)</CardTitle>
-          <CardDescription>Placeholder stock price over time.</CardDescription>
+          <CardDescription>Daily closing price over the last 30 days.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-[300px]">
@@ -90,6 +90,7 @@ export default function SentimentCharts({ newsData, priceData }: SentimentCharts
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
                     tickFormatter={(val) => `$${val}`}
+                    width={50}
                   />
                   <Tooltip content={<PriceTooltip />} />
                   <Area

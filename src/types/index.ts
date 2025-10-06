@@ -27,3 +27,8 @@ export type TickerAnalysisOutput = {
   error?: string;
   rawResponse?: any;
 };
+
+export type PriceData = {
+  date: string;
+  price: number;
+};
