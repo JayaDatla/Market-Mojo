@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useCallback, useTransition, useEffect } from 'react';
+import { useState, useCallback, useTransition } from 'react';
 import { fetchAndAnalyzeNews } from '@/app/actions';
 import type { NewsArticle, TickerAnalysisOutput, PriceData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -21,8 +21,6 @@ export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
   const [tickerInput, setTickerInput] = useState('');
   const [newsData, setNewsData] = useState<NewsArticle[]>([]);
-  const [priceData, setPriceData] = useState<PriceData[]>([]);
-  const [currency, setCurrency] = useState<string | undefined>(undefined);
   const [rawApiData, setRawApiData] = useState<any>(null);
 
   const [isAnalyzing, startTransition] = useTransition();
@@ -48,23 +46,14 @@ export default function MarketMojoDashboard() {
   const handleAnalysis = (input: string) => {
     if (!input) return;
 
-    const normalizedInput = input.trim().toUpperCase();
-
     startTransition(async () => {
       setHasSearched(true);
       setNoResults(false);
       setNewsData([]);
-      setPriceData([]);
       setRawApiData(null);
-      setTicker(input);
+      setTicker(input.toUpperCase());
 
-      // Fetch news and price data in parallel
-      const [analysisResult, priceResult] = await Promise.all([
-        fetchAndAnalyzeNews(input),
-        fetch(`/api/stock-data?ticker=${normalizedInput}`)
-          .then(res => res.json())
-          .catch(err => ({ error: `Failed to fetch price data: ${err.message}` }))
-      ]);
+      const analysisResult = await fetchAndAnalyzeNews(input);
 
       if (analysisResult && !analysisResult.error && analysisResult.analysis && analysisResult.analysis.length > 0) {
         const articles = processAnalysisResult(analysisResult);
@@ -72,25 +61,14 @@ export default function MarketMojoDashboard() {
         setNewsData(articles);
         setRawApiData(analysisResult.rawResponse);
         setTicker(finalTicker);
-        setCurrency(articles[0].currency);
       } else {
         setRawApiData(analysisResult);
         setNoResults(true);
-        setTicker(normalizedInput);
+        setTicker(input.toUpperCase());
         toast({
           variant: 'destructive',
           title: 'Sentiment Analysis Failed',
           description: analysisResult?.error || 'No news articles could be analyzed for this ticker.',
-        });
-      }
-
-      if (priceResult && !priceResult.error) {
-        setPriceData(priceResult);
-      } else if(priceResult?.error) {
-         toast({
-          variant: 'destructive',
-          title: 'Price Data Unavailable',
-          description: priceResult.error,
         });
       }
     });
@@ -112,10 +90,6 @@ export default function MarketMojoDashboard() {
   const isLoading = isAnalyzing;
   const showDashboard = hasSearched && !isLoading;
   const showNoResults = hasSearched && !isLoading && newsData.length === 0;
-
-  const averageSentiment = newsData.length > 0 
-    ? newsData.reduce((acc, article) => acc + article.sentimentScore, 0) / newsData.length
-    : 0;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -165,11 +139,7 @@ export default function MarketMojoDashboard() {
             <div className="lg:col-span-2 space-y-8">
               {newsData.length > 0 ? (
                 <>
-                  <HistoricalPriceChart 
-                    priceData={priceData} 
-                    currency={currency} 
-                    sentimentScore={averageSentiment}
-                  />
+                  <HistoricalPriceChart />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <InvestmentSuggestion newsData={newsData} />
                     <SentimentPieChart newsData={newsData} />
