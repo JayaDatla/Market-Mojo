@@ -19,7 +19,6 @@ const topCompanies = [
   { name: 'Broadcom', ticker: 'AVGO' },
   { name: 'JPMorgan Chase', ticker: 'JPM' },
   { name: 'Tesla', ticker: 'TSLA' },
-  { name: 'Roche', ticker: 'ROG' },
 ];
 
 export default function TopCompanies({ onCompanySelect }: TopCompaniesProps) {
