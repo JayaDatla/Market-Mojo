@@ -19,24 +19,6 @@ import { industryData } from './static-analysis';
 
 type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[], currency: string }>;
 
-
-async function fetchHistoricalData(ticker: string): Promise<{ historicalData: PriceData[], currency: string }> {
-    try {
-        const response = await fetch(`/api/stock-data?query=${ticker}`);
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
-            console.error(`Failed to fetch historical data for ${ticker}:`, errorData.error || response.statusText);
-            return { historicalData: [], currency: 'USD' };
-        }
-        const data = await response.json();
-        return { historicalData: data.historicalData || [], currency: data.currency || 'USD' };
-    } catch (error: any) {
-        console.error(`Fetch request failed for ${ticker}:`, error.message);
-        return { historicalData: [], currency: 'USD' };
-    }
-}
-
-
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
   const [tickerInput, setTickerInput] = useState('');
@@ -70,7 +52,15 @@ export default function MarketMojoDashboard() {
 
     const normalizedInput = input.trim().toUpperCase();
 
-    if (analysisCache[normalizedInput]) {
+    startTransition(async () => {
+      setHasSearched(true);
+      setNoResults(false);
+      setNewsData([]);
+      setPriceData([]);
+      setRawApiData(null);
+      setTicker(input);
+
+      if (analysisCache[normalizedInput]) {
         const cached = analysisCache[normalizedInput];
         const articles = processAnalysisResult(cached.analysis);
         if (articles.length > 0) {
@@ -87,25 +77,20 @@ export default function MarketMojoDashboard() {
             });
             return;
         }
-    }
+      }
 
-    setHasSearched(true);
-    setNoResults(false);
-    setNewsData([]);
-    setPriceData([]);
-    setRawApiData(null);
-    setTicker(input);
-
-    startTransition(async () => {
       const analysisResult = await fetchAndAnalyzeNews(input);
 
       if (analysisResult && !analysisResult.error && analysisResult.analysis && analysisResult.analysis.length > 0) {
         const articles = processAnalysisResult(analysisResult);
         const identifiedTicker = articles[0].ticker;
         
-        const { historicalData: fetchedPriceData, currency: fetchedCurrency } = await fetchHistoricalData(identifiedTicker);
-
-        if (fetchedPriceData.length === 0) {
+        // Use static historical data if available
+        const staticTickerData = industryData[identifiedTicker];
+        const historicalData = staticTickerData?.historicalData || [];
+        const currency = articles[0].currency || 'USD';
+        
+        if (historicalData.length === 0) {
             toast({
                 variant: "destructive",
                 title: 'Price Data Unavailable',
@@ -114,20 +99,21 @@ export default function MarketMojoDashboard() {
         }
 
         setNewsData(articles);
-        setPriceData(fetchedPriceData);
+        setPriceData(historicalData);
         setRawApiData(analysisResult.rawResponse);
         setTicker(identifiedTicker);
-        setCurrency(fetchedCurrency);
+        setCurrency(currency);
         setNoResults(false);
         
         setAnalysisCache(prevCache => ({
           ...prevCache,
-          [normalizedInput]: { analysis: analysisResult, prices: fetchedPriceData, currency: fetchedCurrency },
-          ...(identifiedTicker !== normalizedInput && { [identifiedTicker]: { analysis: analysisResult, prices: fetchedPriceData, currency: fetchedCurrency } }),
+          [normalizedInput]: { analysis: analysisResult, prices: historicalData, currency: currency },
+          ...(identifiedTicker !== normalizedInput && { [identifiedTicker]: { analysis: analysisResult, prices: historicalData, currency: currency } }),
         }));
       } else {
         setRawApiData(analysisResult);
         setNoResults(true);
+        setPriceData([]);
         toast({
           variant: 'destructive',
           title: 'Analysis Failed',
