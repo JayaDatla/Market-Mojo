@@ -21,7 +21,7 @@ ${validatedTicker ? `We have validated this refers to the following publicly tra
 - Exchange: ${validatedTicker.exchange}
 ` : ''}
 
-Focus your analysis exclusively on this company.
+Focus your analysis exclusively on this company. If the identifier refers to a private company (like 'Zerodha' or 'Stripe'), state that clearly and perform the news analysis without focusing on stock market data.
 
 First, perform a general news sentiment analysis. Search for the top 5 most recent credible news articles from the past 30 days related to the company's financial performance or material developments.
 
@@ -188,7 +188,7 @@ export async function searchYahooFinance(query: string): Promise<Ticker[]> {
       ticker: q.symbol,
       companyName: q.longname,
       exchange: q.exchange,
-      currency: 'USD', // Placeholder, Yahoo search doesn't provide currency
+      currency: q.currency || 'USD', // The search API may not return currency, so default.
   }));
 
   return tickers;

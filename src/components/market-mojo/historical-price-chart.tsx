@@ -128,7 +128,7 @@ export default function HistoricalPriceChart({ priceData, priceTrend, exchange, 
                         30-Day Price History
                     </CardTitle>
                     <CardDescription>
-                        {exchange} &middot; Historical price trend over 30 days.
+                        {exchange} &middot; Currency: {currency}
                     </CardDescription>
                 </div>
                 {priceTrend && (

@@ -121,10 +121,18 @@ export default function MarketMojoDashboard() {
           handleAnalysis(input);
         } else if (tickers.length === 1) {
           // If one ticker found, proceed to full analysis
-          handleAnalysis(input, tickers[0]);
+          handleTickerSelection(tickers[0]);
         } else {
           // If multiple tickers found, ask user to select
           setPotentialTickers(tickers);
+           // Also kick off the general news analysis in the background
+          startAnalysisTransition(async () => {
+             const analysisData = await fetchAndAnalyzeNews(input);
+             setAnalysisResult(analysisData);
+             if (analysisData?.error) {
+               toast({ variant: 'destructive', title: 'Analysis Failed', description: analysisData.error });
+             }
+          });
         }
 
       } catch (e: any) {
@@ -136,31 +144,35 @@ export default function MarketMojoDashboard() {
 
   const handleAnalysis = (input: string, ticker?: Ticker) => {
     startAnalysisTransition(async () => {
-      // If a ticker is confirmed, we can already set it and fetch price data
-      if (ticker && ticker.ticker !== 'PRIVATE') {
+      // Set the selected ticker to show loading states correctly
+      if (ticker) {
         setSelectedTicker(ticker);
-        setPotentialTickers([]); // Clear potential tickers since one is selected
-        fetchChartData(ticker.ticker).then(setPriceData).catch(e => {
-            console.warn(`Historical data fetch failed for ${ticker.ticker}:`, e.message);
-            toast({
-              variant: 'default',
-              title: 'Historical Data Notice',
-              description: `Could not fetch price data for ${ticker.ticker}. This can happen for some symbols.`,
-            });
-            setPriceData([]); // Ensure price data is cleared on failure
-        });
       }
+      setPotentialTickers([]);
 
-      const analysisData = await fetchAndAnalyzeNews(input, ticker);
+      const analysisPromise = fetchAndAnalyzeNews(input, ticker);
+      const chartPromise = ticker ? fetchChartData(ticker.ticker) : Promise.resolve([]);
+      
+      const [analysisData, chartData] = await Promise.all([analysisPromise, chartPromise]);
       
       setAnalysisResult(analysisData);
-       if (analysisData?.error) {
+      if (analysisData?.error) {
         toast({
           variant: 'destructive',
           title: 'Analysis Failed',
           description: analysisData.error,
         });
       }
+
+      setPriceData(chartData);
+      if (chartData.length === 0 && ticker) {
+         toast({
+            variant: 'default',
+            title: 'Historical Data Notice',
+            description: `Could not fetch price data for ${ticker.ticker}. This can happen for some symbols.`,
+         });
+      }
+
     });
   };
   
@@ -188,6 +200,8 @@ export default function MarketMojoDashboard() {
   const showDisambiguation = potentialTickers.length > 1;
   const showPriceChart = selectedTicker && priceData.length > 0;
   const showNoResults = hasSearched && !isLoading && !showDisambiguation && !showSentimentAnalysis;
+  const currency = priceData.length > 0 ? priceData[0].currency : selectedTicker?.currency || 'USD';
+
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -214,7 +228,7 @@ export default function MarketMojoDashboard() {
             </div>
         </div>
         
-        {isSearching && !analysisResult ? (
+        {isSearching && !isAnalyzing ? (
           <div className="text-center py-16">
             <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
             <p className="text-muted-foreground mt-4">Searching for {userInput}...</p>
@@ -226,19 +240,12 @@ export default function MarketMojoDashboard() {
               {showDisambiguation && (
                 <TickerSelector tickers={potentialTickers} onSelect={handleTickerSelection} />
               )}
-
-              {isAnalyzing && !selectedTicker && (
-                 <div className="text-center py-16">
-                    <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
-                    <p className="text-muted-foreground mt-4">Analyzing sentiment...</p>
-                </div>
-              )}
               
               {showPriceChart && selectedTicker ? (
                  <HistoricalPriceChart 
                   priceData={priceData} 
                   priceTrend={priceTrend}
-                  currency={selectedTicker?.currency}
+                  currency={currency}
                   exchange={selectedTicker?.exchange || ''}
                 />
               ) : selectedTicker && isAnalyzing ? (
