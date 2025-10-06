@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useCallback, useTransition, useEffect } from 'react';
-import { fetchAndAnalyzeNews, fetchHistoricalDataAuto } from '@/app/actions';
+import { fetchAndAnalyzeNews, fetchChartData, fetchHistoricalDataAuto } from '@/app/actions';
 import type { Ticker, TickerAnalysisOutput, PriceData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
@@ -133,16 +133,17 @@ export default function MarketMojoDashboard() {
     if (ticker.ticker !== 'PRIVATE') {
       setHistoryLoading(true);
       try {
-        const historyResult = await fetchHistoricalDataAuto(ticker.ticker);
-        if (historyResult?.data) {
-          setPriceData(historyResult.data);
+        // Use the more direct fetchChartData function
+        const historyData = await fetchChartData(ticker.ticker);
+        if (historyData) {
+          setPriceData(historyData);
         }
       } catch (e: any) {
         console.warn(`Historical data fetch failed for ${ticker.ticker}:`, e.message);
         toast({
           variant: 'default',
           title: 'Historical Data Notice',
-          description: `Could not fetch price data for ${ticker.ticker}.`,
+          description: `Could not fetch price data for ${ticker.ticker}. This can happen for some symbols.`,
         });
       } finally {
         setHistoryLoading(false);

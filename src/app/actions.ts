@@ -170,7 +170,7 @@ function getUnixTimestamps(daysAgo: number): {start: number; end: number} {
 
 // ------------------ Step 1: Search Yahoo Finance ------------------
 
-async function searchYahooFinance(query: string) {
+export async function searchYahooFinance(query: string) {
   const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(
     query
   )}&quotesCount=1&newsCount=0`;
@@ -196,7 +196,7 @@ async function searchYahooFinance(query: string) {
 
 // ------------------ Step 2: Fetch Chart Data ------------------
 
-async function fetchChartData(ticker: string, days = 30) {
+export async function fetchChartData(ticker: string, days = 30) {
   const {start, end} = getUnixTimestamps(days);
   const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     ticker
