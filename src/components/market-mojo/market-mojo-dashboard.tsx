@@ -89,7 +89,7 @@ export default function MarketMojoDashboard() {
       // Fetch historical data using the new, simpler API
       try {
           // The new API just needs the user's original input string
-          const historyResponse = await fetch(`/api/stock-data?ticker=${input}`);
+          const historyResponse = await fetch(`/api/stock-data?ticker=${encodeURIComponent(input)}`);
           
           if (!historyResponse.ok) {
               const err = await historyResponse.json();
@@ -105,7 +105,18 @@ export default function MarketMojoDashboard() {
                   setCurrency(historyResult[0].currency);
               }
           } else {
-              throw new Error("No data returned from API.");
+              // Attempt to fall back to static data if API returns empty but valid response
+               const staticData = getStaticPriceData(finalTicker);
+               if (staticData) {
+                   setPriceData(staticData);
+                   toast({
+                       variant: 'default',
+                       title: 'Data Notice',
+                       description: `Could not fetch live historical data. Showing static data for ${finalTicker}.`,
+                   });
+               } else {
+                 setPriceData([]);
+               }
           }
       } catch (e: any) {
           console.warn(`Dynamic historical data fetch failed for ${input}:`, e.message);
@@ -147,7 +158,7 @@ export default function MarketMojoDashboard() {
 
   const isLoading = isAnalyzing;
   const showDashboard = hasSearched && !isLoading;
-  const showNoResults = hasSearched && !isLoading && newsData.length === 0;
+  const showNoResults = hasSearched && !isLoading && newsData.length === 0 && priceData.length === 0;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -209,7 +220,7 @@ export default function MarketMojoDashboard() {
                     <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-medium text-foreground">No Analysis Found</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Could not retrieve sentiment data for <span className="font-semibold text-foreground">{tickerInput}</span>.
+                        Could not retrieve sentiment or price data for <span className="font-semibold text-foreground">{tickerInput}</span>.
                     </p>
                     <p className="text-sm text-muted-foreground">This could be due to a lack of recent news or an issue with the data service.</p>
                  </div>
