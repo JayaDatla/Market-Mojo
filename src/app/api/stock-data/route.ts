@@ -1,15 +1,27 @@
-
 import {NextRequest, NextResponse} from 'next/server';
-import puppeteer from 'puppeteer';
 
-// Convert days ago to UNIX timestamps
+/**
+ * Global Yahoo Finance Historical Data Fetcher
+ * 
+ * - Automatically resolves correct tickers worldwide using Yahoo Finance Search API
+ * - Uses Puppeteer Stealth for reliable scraping
+ * - Includes fallback logic for known mappings and suffixes
+ */
+
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import fetch from 'node-fetch';
+
+puppeteer.use(StealthPlugin());
+
+// Get UNIX timestamps for a given number of days ago
 function getUnixTimestamps(daysAgo: number): { start: number; end: number } {
   const end = Math.floor(Date.now() / 1000);
   const start = end - daysAgo * 24 * 3600;
   return { start, end };
 }
 
-// Extensive currency suffix mapping for Yahoo Finance tickers
+// Yahoo Finance currency → suffix mapping
 const currencySuffixes: { [currency: string]: string } = {
   USD: "",
   CAD: ".TO",
@@ -23,7 +35,7 @@ const currencySuffixes: { [currency: string]: string } = {
   DKK: ".CO",
   AUD: ".AX",
   NZD: ".NZ",
-  JPY: ".TYO",
+  JPY: ".T",
   CNY: ".SS",
   HKD: ".HK",
   INR: ".NS",
@@ -32,7 +44,7 @@ const currencySuffixes: { [currency: string]: string } = {
   ZAR: ".JSE",
   RUB: ".ME",
   TRY: ".IS",
-  SAR: ".SD",
+  SAR: ".SR",
   MYR: ".KL",
   IDR: ".JK",
   TWD: ".TW",
@@ -47,111 +59,130 @@ const currencySuffixes: { [currency: string]: string } = {
   ILS: ".TA",
 };
 
-// Map origin country to primary currency
+// Country → currency mapping
 const countryPrimaryCurrency: { [country: string]: string } = {
-  USA: "USD",
-  US: "USD",
-  "United States": "USD",
-  India: "INR",
-  IN: "INR",
-  Japan: "JPY",
-  JP: "JPY",
-  UK: "GBP",
-  "United Kingdom": "GBP",
-  GB: "GBP",
-  Canada: "CAD",
-  CA: "CAD",
-  Germany: "EUR",
-  DE: "EUR",
-  France: "EUR",
-  FR: "EUR",
-  Australia: "AUD",
-  AU: "AUD",
-  China: "CNY",
-  CN: "CNY",
-  HongKong: "HKD",
-  HK: "HKD",
-  SouthKorea: "KRW",
-  KR: "KRW",
-  Singapore: "SGD",
-  SG: "SGD",
-  Brazil: "BRL",
-  BR: "BRL",
-  Russia: "RUB",
-  RU: "RUB",
-  Mexico: "MXN",
-  MX: "MXN",
-  SouthAfrica: "ZAR",
-  ZA: "ZAR",
-  SaudiArabia: "SAR",
-  SA: "SAR",
-  UAE: "AED",
-  AE: "AED",
-  Sweden: "SEK",
-  SE: "SEK",
-  Norway: "NOK",
-  NO: "NOK",
-  Switzerland: "CHF",
-  CH: "CHF",
-  NewZealand: "NZD",
-  NZ: "NZD",
-  Poland: "PLN",
-  PL: "PLN",
-  Turkey: "TRY",
-  TR: "TRY",
-  Taiwan: "TWD",
-  TW: "TWD",
+  USA: "USD", US: "USD",
+  India: "INR", IN: "INR",
+  Japan: "JPY", JP: "JPY",
+  UK: "GBP", GB: "GBP", "United Kingdom": "GBP",
+  Canada: "CAD", CA: "CAD",
+  Germany: "EUR", DE: "EUR",
+  France: "EUR", FR: "EUR",
+  Australia: "AUD", AU: "AUD",
+  China: "CNY", CN: "CNY",
+  HongKong: "HKD", HK: "HKD",
+  SouthKorea: "KRW", KR: "KRW",
+  Singapore: "SGD", SG: "SGD",
+  Brazil: "BRL", BR: "BRL",
+  Russia: "RUB", RU: "RUB",
+  Mexico: "MXN", MX: "MXN",
+  SouthAfrica: "ZAR", ZA: "ZAR",
+  SaudiArabia: "SAR", SA: "SAR",
+  UAE: "AED", AE: "AED",
+  Sweden: "SEK", SE: "SEK",
+  Norway: "NOK", NO: "NOK",
+  Switzerland: "CHF", CH: "CHF",
+  NewZealand: "NZD", NZ: "NZD",
+  Poland: "PLN", PL: "PLN",
+  Turkey: "TRY", TR: "TRY",
+  Taiwan: "TWD", TW: "TWD",
+  Denmark: "DKK", DK: "DKK",
+  Chile: "CLP", CL: "CLP",
+  Colombia: "COP", CO: "COP",
+  Philippines: "PHP", PH: "PHP",
+  Thailand: "THB", TH: "THB",
+  Israel: "ILS", IL: "ILS",
+  Hungary: "HUF", HU: "HUF",
+  CzechRepublic: "CZK", CZ: "CZK",
+  Malaysia: "MYR", MY: "MYR",
+  Indonesia: "IDR", ID: "IDR",
+  Ireland: "EUR", IE: "EUR",
+  Netherlands: "EUR", NL: "EUR",
+  Belgium: "EUR", BE: "EUR",
+  Austria: "EUR", AT: "EUR",
+  Finland: "EUR", FI: "EUR",
+  Portugal: "EUR", PT: "EUR",
+  Greece: "EUR", GR: "GR",
 };
 
-// Mapping ambiguous tickers/name + origin to primary Yahoo ticker
+// Known ambiguous company name → ticker mappings
 const companyOriginToPrimaryTicker: { [key: string]: string } = {
   "tata motors|india": "TATAMOTORS.NS",
   "ttm|india": "TATAMOTORS.NS",
   "apple|usa": "AAPL",
-  "apple|united states": "AAPL",
-  "aapl|usa": "AAPL",
-  "aapl|united states": "AAPL",
   "meta|usa": "META",
-  "meta platforms|usa": "META",
   "facebook|usa": "META",
-  "fb|usa": "META",
+  "toyota motor|japan": "7203.T",
+  "toyota|japan": "7203.T",
   "bp|uk": "BP.L",
   "bp|united kingdom": "BP.L",
-  "toyota motor|japan": "7203.T",
-  "toyota motors|japan": "7203.T",
-  "toyota|japan": "7203.T",
-  "tm|japan": "7203.T",
 };
 
-// Normalize for consistent mapping lookups
 function normalizeString(str: string): string {
   return str.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function resolveTicker(input: string, originCountry: string, isTicker: boolean): string {
-  const key = `${normalizeString(input)}|${normalizeString(originCountry)}`;
+/**
+ * Query Yahoo Finance's autocomplete API for the best ticker match.
+ */
+async function getYahooTicker(query: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}`
+    );
+    const data: any = await res.json();
+    if (data?.quotes?.length > 0) {
+      return data.quotes[0].symbol;
+    }
+  } catch {
+    // fail silently
+  }
+  return null;
+}
 
+/**
+ * Validate ticker existence using Yahoo's chart API.
+ */
+async function isValidTicker(ticker: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`
+    );
+    const data: any = await res.json();
+    return !!data?.chart?.result;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve correct ticker with AI-style logic, Yahoo API, and suffix fallback.
+ */
+async function resolveTicker(input: string, originCountry: string, isTicker: boolean): Promise<string> {
+  const key = `${normalizeString(input)}|${normalizeString(originCountry)}`;
   if (key in companyOriginToPrimaryTicker) {
     return companyOriginToPrimaryTicker[key];
   }
 
-  // If input is ticker without suffix, append based on origin currency
-  if (isTicker) {
-    const currency = countryPrimaryCurrency[originCountry] ?? "USD";
-    if (input.includes(".")) return input;
-    return input + (currencySuffixes[currency] ?? "");
+  // Try Yahoo Finance search API
+  const yahooTicker = await getYahooTicker(input);
+  if (yahooTicker && await isValidTicker(yahooTicker)) {
+    return yahooTicker;
   }
 
-  // For unknown company name, fallback (likely to fail if Yahoo ticker differs)
+  // Fallback: construct suffix-based ticker
+  if (isTicker) {
+    if (input.includes(".")) return input;
+    const currency = countryPrimaryCurrency[originCountry] ?? "USD";
+    const suffix = currencySuffixes[currency] ?? "";
+    return input + suffix;
+  }
+
   return input;
 }
 
 /**
- * Fetches 30-day historical price data from Yahoo Finance using Puppeteer.
- * @param input Company name or ticker symbol
- * @param originCountry Company's origin country
- * @param isTicker True if input is ticker, false if company name
- * @param days Number of days of historical data to fetch, defaults to 30
+ * Fetch historical data from Yahoo Finance using Puppeteer.
  */
 export async function fetchHistoricalDataDynamic(
   input: string,
@@ -159,10 +190,10 @@ export async function fetchHistoricalDataDynamic(
   isTicker: boolean = false,
   days: number = 30
 ) {
-  const ticker = resolveTicker(input, originCountry, isTicker);
+  const ticker = await resolveTicker(input, originCountry, isTicker);
   const currency = countryPrimaryCurrency[originCountry] ?? "USD";
-
   const { start, end } = getUnixTimestamps(days);
+
   const url = `https://finance.yahoo.com/quote/${encodeURIComponent(
     ticker
   )}/history?period1=${start}&period2=${end}&interval=1d&filter=history&frequency=1d`;
@@ -174,8 +205,6 @@ export async function fetchHistoricalDataDynamic(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
       "(KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
   );
-
-  // Setting viewport to reduce bot detection
   await page.setViewport({ width: 1366, height: 768 });
 
   try {
@@ -184,15 +213,9 @@ export async function fetchHistoricalDataDynamic(
       timeout: 25000,
     });
 
-    const rows = await page.$$eval(
-      'table[data-test="historical-prices"] tbody tr',
-      trs => trs.map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim()))
+    const rows = await page.$$eval('table[data-test="historical-prices"] tbody tr', trs =>
+      trs.map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim()))
     );
-
-    if (!rows.length) {
-      await page.screenshot({ path: "no_data.png", fullPage: true });
-      throw new Error("No historical price rows found - possibly page structure changed.");
-    }
 
     await browser.close();
 
@@ -207,11 +230,10 @@ export async function fetchHistoricalDataDynamic(
         date: new Date(cols[0]).toISOString().split('T')[0],
         close: parseNum(cols[4]),
       }))
-      .filter(e => !isNaN(e.close) && e.close > 0);
-
+      .filter(entry => !isNaN(entry.close) && entry.close > 0);
   } catch (error: any) {
     await browser.close();
-    throw new Error(`Failed fetching data for ${ticker} (${originCountry}): ${error.message}`);
+    throw new Error(`Failed to fetch data for ${ticker} (${originCountry}): ${error.message}`);
   }
 }
 
