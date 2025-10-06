@@ -1,203 +1,145 @@
 
 import {NextRequest, NextResponse} from 'next/server';
 import puppeteer from 'puppeteer';
-import type {PriceData} from '@/types';
 
-// Convert days ago to UNIX timestamp range
+// Get UNIX timestamps for the past 'daysAgo' days
 function getUnixTimestamps(daysAgo: number): {start: number; end: number} {
   const end = Math.floor(Date.now() / 1000);
   const start = end - daysAgo * 24 * 3600;
   return {start, end};
 }
 
-/**
- * Global currency-to-YahooFinance exchange suffix mapping covering virtually all major stock markets.
- * If a currency is used by multiple exchanges, the most likely primary exchange for that currency is chosen.
- */
+// Extensive mapping from currency codes to Yahoo Finance ticker suffixes
 const currencySuffixes: {[currency: string]: string} = {
-  USD: '', // US exchanges (NYSE, NASDAQ) usually have no suffix
-  CAD: '.TO', // Toronto Stock Exchange
-  MXN: '.MX', // Mexican Stock Exchange
-  BRL: '.SA', // B3 - Brazil
-  GBP: '.L', // London Stock Exchange
-  EUR: '.PA', // Euronext Paris
-  CHF: '.SW', // SIX Swiss Exchange
-  SEK: '.ST', // Stockholm OMX
-  NOK: '.OL', // Oslo Børs
-  DKK: '.CO', // Copenhagen OMX
-  AUD: '.AX', // Australian Securities Exchange
-  NZD: '.NZ', // New Zealand Exchange
-  JPY: '.T', // Tokyo Stock Exchange (Corrected from .TYO)
-  CNY: '.SS', // Shanghai Stock Exchange
-  HKD: '.HK', // Hong Kong Stock Exchange
-  INR: '.NS', // NSE India
-  KRW: '.KS', // Korea Exchange (KOSPI)
-  SGD: '.SI', // Singapore Exchange
-  ZAR: '.J', // Johannesburg Stock Exchange (Corrected from .JSE)
-  RUB: '.ME', // Moscow Exchange
-  TRY: '.IS', // Istanbul Stock Exchange
-  SAR: '.SR', // Saudi Stock Exchange (Tadawul)
-  MYR: '.KL', // Bursa Malaysia
-  IDR: '.JK', // Indonesia Stock Exchange
-  TWD: '.TW', // Taiwan Stock Exchange
-  THB: '.BK', // Stock Exchange of Thailand
-  PHP: '.PS', // Philippine Stock Exchange
-  AED: '.DFM', // Dubai Financial Market (approximate)
-  COP: '.CN', // Colombia Stock Exchange (Corrected from .MC)
-  CLP: '.SN', // Santiago Stock Exchange - Chile
-  PLN: '.WA', // Warsaw Stock Exchange (WSE)
-  HUF: '.BU', // Budapest Stock Exchange
-  CZK: '.PR', // Prague Stock Exchange
-  ILS: '.TA', // Tel Aviv Stock Exchange
+  USD: '',
+  CAD: '.TO',
+  MXN: '.MX',
+  BRL: '.SA',
+  GBP: '.L',
+  EUR: '.PA',
+  CHF: '.SW',
+  SEK: '.ST',
+  NOK: '.OL',
+  DKK: '.CO',
+  AUD: '.AX',
+  NZD: '.NZ',
+  JPY: '.T',
+  CNY: '.SS',
+  HKD: '.HK',
+  INR: '.NS',
+  KRW: '.KS',
+  SGD: '.SI',
+  ZAR: '.J',
+  RUB: '.ME',
+  TRY: '.IS',
+  SAR: '.SR',
+  MYR: '.KL',
+  IDR: '.JK',
+  TWD: '.TW',
+  THB: '.BK',
+  PHP: '.PS',
+  AED: '.DFM',
+  COP: '.CN',
+  CLP: '.SN',
+  PLN: '.WA',
+  HUF: '.BU',
+  CZK: '.PR',
+  ILS: '.TA',
 };
 
-/**
- * Map of company country origins to preferred currency (uniquely identifies primary listing)
- * Used to resolve multiple listings across exchanges to ONE primary listing.
- * Keys should be ISO Alpha-2 country codes or company origin country names consistent with usage.
- */
+// Mapping origin countries to their primary currency to identify main listing
 const countryPrimaryCurrency: {[country: string]: string} = {
-  // United States
   USA: 'USD',
   US: 'USD',
   'United States': 'USD',
-  // India
   India: 'INR',
   IN: 'INR',
-  // Japan
   Japan: 'JPY',
   JP: 'JPY',
-  // United Kingdom
   UK: 'GBP',
   'United Kingdom': 'GBP',
   GB: 'GBP',
-  // Canada
   Canada: 'CAD',
   CA: 'CAD',
-  // Germany (mostly EUR market)
   Germany: 'EUR',
   DE: 'EUR',
-  // France
   France: 'EUR',
   FR: 'EUR',
-  // Australia
   Australia: 'AUD',
   AU: 'AUD',
-  // China
   China: 'CNY',
   CN: 'CNY',
-  // Hong Kong
   HongKong: 'HKD',
   HK: 'HKD',
-  // South Korea
   SouthKorea: 'KRW',
-  KRW: 'KRW', // Also add by currency
+  KRW: 'KRW',
   KR: 'KRW',
-  // Singapore
   Singapore: 'SGD',
   SG: 'SGD',
-  // Brazil
   Brazil: 'BRL',
   BR: 'BRL',
-  // Russia
   Russia: 'RUB',
   RU: 'RUB',
-  // Mexico
   Mexico: 'MXN',
   MX: 'MXN',
-  // South Africa
   SouthAfrica: 'ZAR',
   ZA: 'ZAR',
-  // Saudi Arabia
   SaudiArabia: 'SAR',
   SA: 'SAR',
-  // UAE
   UAE: 'AED',
   AE: 'AED',
-  // Sweden
   Sweden: 'SEK',
   SE: 'SEK',
-  // Norway
   Norway: 'NOK',
   NO: 'NOK',
-  // Switzerland
   Switzerland: 'CHF',
   CH: 'CHF',
-  // New Zealand
   NewZealand: 'NZD',
   NZ: 'NZD',
-  // Poland
   Poland: 'PLN',
   PL: 'PLN',
-  // Turkey
   Turkey: 'TRY',
   TR: 'TRY',
-  // Taiwan
   Taiwan: 'TWD',
   TW: 'TWD',
 };
 
-// Utility: Normalize country input for consistent lookup
-function normalizeCountry(country: string): string {
-  return country.trim().replace(/\s+/g, '').toLowerCase();
+// Normalize strings to lowercase without spaces for matching
+function normalizeString(input: string): string {
+  return input.trim().toLowerCase().replace(/\s+/g, '');
 }
 
-/**
- * Resolve preferred ticker + currency for a company given its ticker, currency, and company origin country.
- * If multiple markets/currencies are possible, choose the one matching the country origin's primary currency.
- */
-function resolvePrimaryListing(
-  ticker: string,
-  currency: string,
-  companyCountry: string
-): {ticker: string; currency: string} {
-  // Normalize country input for key matching
-  const normCountry = normalizeCountry(companyCountry);
-
-  // Search countryPrimaryCurrency keys ignoring case/spacing
-  for (const countryKey in countryPrimaryCurrency) {
-    if (normalizeCountry(countryKey) === normCountry) {
-      const preferredCurrency = countryPrimaryCurrency[countryKey];
-      if (currency === preferredCurrency) {
-        // Already matches preferred currency
-        return {ticker, currency};
-      }
-      // Otherwise try to adapt ticker for preferred currency
-      const targetSuffix = currencySuffixes[preferredCurrency] || '';
-      const normalizedTickerBase = ticker.split('.')[0]; // Remove existing suffix if any
-      return {
-        ticker: normalizedTickerBase + targetSuffix,
-        currency: preferredCurrency,
-      };
+// Find preferred currency for company given the origin country input
+function getPreferredCurrencyForCountry(country: string): string {
+  const norm = normalizeString(country);
+  for (const c in countryPrimaryCurrency) {
+    if (normalizeString(c) === norm) {
+      return countryPrimaryCurrency[c];
     }
   }
-  // If country unknown, return given ticker/currency unchanged
-  return {ticker, currency};
+  return '';
 }
 
-/**
- * Main function: Fetch 30-day historical prices for a company,
- * given ticker, currency, and company origin country.
- * Ensures primary market is chosen based on company country.
- */
-export async function fetchHistoricalDataGlobal(
-  ticker: string,
-  currency: string,
-  companyCountry: string,
-  days: number = 30
-): Promise<PriceData[]> {
-  // Resolve to primary market ticker and currency
-  const {ticker: resolvedTicker, currency: resolvedCurrency} =
-    resolvePrimaryListing(ticker, currency, companyCountry);
+// Format ticker with Yahoo Finance suffix for given currency
+function formatTickerForYahoo(ticker: string, currency: string): string {
+  if (ticker.includes('.')) return ticker; // Already formatted
+  const suffix = currencySuffixes[currency];
+  return suffix !== undefined ? ticker + suffix : ticker;
+}
 
-  // Format ticker with Yahoo suffix
-  const suffix =
-    currencySuffixes[resolvedCurrency] !== undefined
-      ? currencySuffixes[resolvedCurrency]
-      : '';
-  const formattedTicker = resolvedTicker.includes('.')
-    ? resolvedTicker
-    : resolvedTicker + suffix;
+// Main function: fetch 30 days historical data from origin country market only
+export async function fetchHistoricalDataForOrigin(
+  ticker: string,
+  originCountry: string,
+  days: number = 30
+) {
+  const currency = getPreferredCurrencyForCountry(originCountry);
+  if (!currency) {
+    throw new Error(
+      `Unable to determine currency for origin country: ${originCountry}`
+    );
+  }
+  const formattedTicker = formatTickerForYahoo(ticker, currency);
 
   const {start, end} = getUnixTimestamps(days);
   const url = `https://finance.yahoo.com/quote/${encodeURIComponent(
@@ -208,14 +150,7 @@ export async function fetchHistoricalDataGlobal(
   try {
     browser = await puppeteer.launch({
       headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-infobars',
-        '--window-position=0,0',
-        '--ignore-certifcate-errors',
-        '--ignore-certifcate-errors-spki-list',
-      ],
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
     const page = await browser.newPage();
 
@@ -269,25 +204,19 @@ export async function fetchHistoricalDataGlobal(
 export async function GET(request: NextRequest) {
   const {searchParams} = new URL(request.url);
   const ticker = searchParams.get('ticker');
-  const currency = searchParams.get('currency');
   const companyCountry = searchParams.get('companyCountry');
 
-  if (!ticker || !currency || !companyCountry) {
+  if (!ticker || !companyCountry) {
     return NextResponse.json(
       {
-        error:
-          'Ticker, currency, and companyCountry are required query parameters.',
+        error: 'Ticker and companyCountry are required query parameters.',
       },
       {status: 400}
     );
   }
 
   try {
-    const history = await fetchHistoricalDataGlobal(
-      ticker,
-      currency,
-      companyCountry
-    );
+    const history = await fetchHistoricalDataForOrigin(ticker, companyCountry);
     return NextResponse.json(history);
   } catch (error: any) {
     return NextResponse.json({error: error.message}, {status: 500});

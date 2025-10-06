@@ -73,7 +73,7 @@ export default function MarketMojoDashboard() {
         const articles = processAnalysisResult(sentimentResult);
         finalTicker = articles[0].ticker;
         finalCurrency = articles[0].currency || 'USD';
-        finalCompanyCountry = articles[0].companyCountry || 'USA';
+        finalCompanyCountry = articles[0].companyCountry;
         
         setNewsData(articles);
         setRawApiData(sentimentResult.rawResponse);
@@ -89,9 +89,19 @@ export default function MarketMojoDashboard() {
         });
       }
 
+      if (!finalCompanyCountry) {
+        toast({
+            variant: 'destructive',
+            title: 'Missing Data',
+            description: `Could not determine country of origin for ${finalTicker}. Historical data may be unavailable.`,
+        });
+        setPriceData([]);
+        return;
+      }
+
       // Now fetch historical data with resolved info
       try {
-          const historyResponse = await fetch(`/api/stock-data?ticker=${finalTicker}&currency=${finalCurrency}&companyCountry=${finalCompanyCountry}`);
+          const historyResponse = await fetch(`/api/stock-data?ticker=${finalTicker}&companyCountry=${finalCompanyCountry}`);
           if (!historyResponse.ok) {
               const err = await historyResponse.json();
               throw new Error(err.error);

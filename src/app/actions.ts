@@ -19,11 +19,11 @@ CRITICAL: If the company is listed on a US-based exchange (e.g., NYSE, NASDAQ) i
 
 For the selected ticker, determine the three-letter currency code corresponding to its exchange (e.g., "USD" for NASDAQ, "JPY" for Tokyo Stock Exchange, "INR" for NSE India).
 
-After confirming the single most appropriate ticker, its currency, and country of origin, search the web for the top 5 most recent credible news articles related to this company’s financial performance, operations, or major market-moving developments.
+After confirming the single most appropriate ticker, its currency, and company's country of origin, search the web for the top 5 most recent credible news articles related to this company’s financial performance, operations, or major market-moving developments.
 
 Strictly analyze each article snippet for its immediate impact on investor perception and potential influence on the stock price, ignoring all non-financial or non-investor-relevant context.
 
-For each article, provide:
+For each article, you MUST provide:
 - title
 - url
 - one-sentence financial impact summary
@@ -31,7 +31,7 @@ For each article, provide:
 - sentiment_score from -1.0 to 1.0
 - the identified ticker
 - the currency code of its primary exchange
-- the company's country of origin
+- the company's country of origin as 'companyCountry'
 
 Return results strictly as a single valid JSON array of objects with the exact structure:
 [
