@@ -6,6 +6,10 @@ import type { TickerAnalysisOutput, ArticleAnalysis } from '@/types';
 const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
 const PERPLEXITY_MODEL = "sonar";
 
+// In-memory cache to store recent analysis results
+const analysisCache = new Map<string, { timestamp: number; data: TickerAnalysisOutput }>();
+const CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
 const generatePrompt = (tickerOrName: string) => `
 You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
 
@@ -47,6 +51,14 @@ Ensure no additional text, explanations, or formatting outside of the JSON is in
 export async function fetchAndAnalyzeNews(
   tickerOrName: string
 ): Promise<TickerAnalysisOutput> {
+  const normalizedTicker = tickerOrName.trim().toUpperCase();
+  const cachedEntry = analysisCache.get(normalizedTicker);
+
+  // Check if a valid, recent entry exists in the cache
+  if (cachedEntry && (Date.now() - cachedEntry.timestamp < CACHE_DURATION_MS)) {
+    return cachedEntry.data;
+  }
+
   const prompt = generatePrompt(tickerOrName);
   
   if (!process.env.PERPLEXITY_API_KEY) {
@@ -75,14 +87,17 @@ export async function fetchAndAnalyzeNews(
     if (!response.ok) {
         const errorText = await response.text();
         console.error(`API request failed with status ${response.status}:`, errorText);
-        return { error: `API request failed with status ${response.status}: ${errorText}` };
+        const result: TickerAnalysisOutput = { error: `API request failed with status ${response.status}: ${errorText}` };
+        // Do not cache errors
+        return result;
     }
 
     const data = await response.json();
     const content = data.choices[0]?.message?.content;
     
     if (!content) {
-        return { error: "No content returned from the API." };
+        const result: TickerAnalysisOutput = { error: "No content returned from the API." };
+        return result;
     }
     
     // Regex to find JSON within ```json ... ``` or a raw array.
@@ -91,23 +106,31 @@ export async function fetchAndAnalyzeNews(
 
     if (!match || !match[1]) {
         console.error("No JSON array found in the API response:", content);
-        return { error: "Failed to find valid JSON in the API's response.", rawResponse: content };
+        const result: TickerAnalysisOutput = { error: "Failed to find valid JSON in the API's response.", rawResponse: content };
+        return result;
     }
     
     const cleanedContent = match[1];
 
     try {
       const analysis: ArticleAnalysis[] = JSON.parse(cleanedContent);
-      return { analysis, rawResponse: data };
+      const result: TickerAnalysisOutput = { analysis, rawResponse: data };
+      
+      // Cache the successful result
+      analysisCache.set(normalizedTicker, { timestamp: Date.now(), data: result });
+      
+      return result;
     } catch (e: any) {
       console.error("Failed to parse JSON from API response:", e, "Cleaned content:", cleanedContent);
-      return { error: "Failed to parse the analysis from the API's response.", rawResponse: content };
+      const result: TickerAnalysisOutput = { error: "Failed to parse the analysis from the API's response.", rawResponse: content };
+      return result;
     }
 
   } catch (e: any) {
     console.error(`Error analyzing ticker ${tickerOrName}:`, e);
-    return {
+    const result: TickerAnalysisOutput = {
       error: e.message || `An unexpected error occurred while analyzing ${tickerOrName}.`,
     };
+    return result;
   }
 }
