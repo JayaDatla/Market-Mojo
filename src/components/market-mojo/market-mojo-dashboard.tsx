@@ -16,12 +16,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import InvestmentSuggestion from './investment-suggestion';
 import SentimentPieChart from './sentiment-pie-chart';
 import HistoricalPriceChart from './historical-price-chart';
+import MojoSynthesis from './mojo-synthesis';
 
 export default function MarketMojoDashboard() {
   const [userInput, setUserInput] = useState('');
   const [analysisResult, setAnalysisResult] = useState<TickerAnalysisOutput | null>(null);
   const [selectedTickerData, setSelectedTickerData] = useState<TickerAnalysis | null>(null);
   const [priceData, setPriceData] = useState<PriceData[]>([]);
+  const [priceTrend, setPriceTrend] = useState<'Up' | 'Down' | 'Neutral'>('Neutral');
 
   const [isAnalyzing, startTransition] = useTransition();
   const [hasSearched, setHasSearched] = useState(false);
@@ -35,6 +37,7 @@ export default function MarketMojoDashboard() {
       setAnalysisResult(null);
       setSelectedTickerData(null);
       setPriceData([]);
+      setPriceTrend('Neutral');
       
       const result = await fetchAndAnalyzeNews(input);
       setAnalysisResult(result);
@@ -89,6 +92,10 @@ export default function MarketMojoDashboard() {
       handleAnalysis(userInput);
     }
   };
+
+  const handleTrendCalculated = useCallback((trend: 'Up' | 'Down' | 'Neutral') => {
+    setPriceTrend(trend);
+  }, []);
 
   const isLoading = isAnalyzing;
   const showDashboard = hasSearched && !isLoading && selectedTickerData;
@@ -148,11 +155,13 @@ export default function MarketMojoDashboard() {
                     sentimentScore={selectedTickerData.analysis_summary.average_sentiment_score} 
                     currency={selectedTickerData.currency}
                     exchange={selectedTickerData.exchange}
+                    onTrendCalculated={handleTrendCalculated}
                   />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <InvestmentSuggestion tickerData={selectedTickerData} />
                     <SentimentPieChart newsData={selectedTickerData.articles} />
                   </div>
+                  <MojoSynthesis sentimentAnalysis={selectedTickerData.analysis_summary} priceTrend={priceTrend} />
                   <NewsFeed newsData={selectedTickerData.articles} />
               </>
             </div>

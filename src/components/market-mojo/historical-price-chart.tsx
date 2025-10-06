@@ -13,6 +13,7 @@ interface HistoricalPriceChartProps {
     sentimentScore: number;
     exchange: string;
     currency?: string;
+    onTrendCalculated: (trend: 'Up' | 'Down' | 'Neutral') => void;
 }
 
 const currencySymbolMap: { [key: string]: string } = {
@@ -45,10 +46,11 @@ const calculateTrend = (data: {x: number; y: number}[]) => {
     return { slope, intercept };
 };
 
-export default function HistoricalPriceChart({ priceData, sentimentScore, exchange, currency = 'USD' }: HistoricalPriceChartProps) {
-    const { chartData, prediction, trendColor, TrendIcon, yAxisDomain } = useMemo(() => {
+export default function HistoricalPriceChart({ priceData, sentimentScore, exchange, currency = 'USD', onTrendCalculated }: HistoricalPriceChartProps) {
+    const { chartData, priceTrend, trendColor, TrendIcon, yAxisDomain } = useMemo(() => {
         if (!priceData || priceData.length === 0) {
-            return { chartData: [], prediction: null, trendColor: 'text-gray-500', TrendIcon: Minus, yAxisDomain: [0, 100] };
+            onTrendCalculated('Neutral');
+            return { chartData: [], priceTrend: 'Neutral', trendColor: 'text-gray-500', TrendIcon: Minus, yAxisDomain: [0, 100] };
         }
 
         let minPrice = Infinity;
@@ -85,19 +87,21 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, exchan
             color = 'text-red-500';
             icon = TrendingDown;
         }
+        
+        onTrendCalculated(pred);
 
         const padding = (maxPrice - minPrice) * 0.1; // 10% padding
         const yDomain: [number, number] = [Math.max(0, Math.floor(minPrice - padding)), Math.ceil(maxPrice + padding)];
 
         return { 
             chartData: fullChartData, 
-            prediction: pred, 
+            priceTrend: pred, 
             trendColor: color, 
             TrendIcon: icon,
             yAxisDomain: yDomain
         };
 
-    }, [priceData, sentimentScore]);
+    }, [priceData, sentimentScore, onTrendCalculated]);
 
     const getCurrencySymbol = (code: string) => currencySymbolMap[code] || `${code} `;
 
@@ -125,20 +129,20 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, exchan
     
     return (
         <Card className="bg-card border-border/50">
-            <CardHeader className="flex flex-row justify-between items-start">
+            <CardHeader className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
                 <div>
                     <CardTitle className="flex items-center gap-2">
                         <AreaChart className="h-5 w-5 text-primary" />
                         30-Day Price History
                     </CardTitle>
                     <CardDescription>
-                        {exchange} &middot; AI-driven trend analysis.
+                        {exchange} &middot; Historical price trend over 30 days.
                     </CardDescription>
                 </div>
-                {prediction && (
-                    <div className={`flex items-center gap-2 text-sm font-semibold ${trendColor}`}>
+                {priceTrend && (
+                    <div className={`flex items-center gap-2 text-sm font-semibold ${trendColor} bg-accent/50 px-3 py-1.5 rounded-md`}>
                         <TrendIcon className="h-5 w-5" />
-                        <span>Prediction: {prediction}</span>
+                        <span>Price Trend: {priceTrend}</span>
                     </div>
                 )}
             </CardHeader>
