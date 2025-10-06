@@ -9,10 +9,7 @@ const PERPLEXITY_MODEL = "sonar";
 const generatePrompt = (tickerOrName: string) => `
 You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
 
-The user has provided the following identifier: "${tickerOrName}". First, identify the correct company. Then, determine its primary stock ticker. Your process should be:
-1. Identify the company's primary stock exchange (e.g., NYSE, NASDAQ, BSE, TYO).
-2. Determine the exact ticker symbol used on that exchange that is most compatible with financial data APIs (e.g., 'TM' for Toyota on NYSE, 'TATAMOTORS.BSE' for Tata Motors on BSE).
-After identifying the correct ticker, search the web for the top 5 most recent news articles for it.
+The user has provided the following identifier: "${tickerOrName}". First, identify the correct company. After identifying the correct company, search the web for the top 5 most recent news articles for it.
 
 Strictly analyze these news snippets for their immediate impact on investor perception and stock price, ignoring all non-financial context.
 For each article, provide a one-sentence summary, determine if the sentiment is "Positive", "Negative", or "Neutral", provide a sentiment_score from -1.0 to 1.0, the identified ticker, and the three-letter currency code for the stock's primary exchange (e.g., "JPY", "INR", "USD").
@@ -72,20 +69,29 @@ export async function fetchAndAnalyzeNews(
         return { error: "No content returned from the API." };
     }
     
-    const cleanedContent = content.replace(/```json\n|```/g, '').trim();
+    // Find the start and end of the JSON array
+    const jsonStart = content.indexOf('[');
+    const jsonEnd = content.lastIndexOf(']');
+    
+    if (jsonStart === -1 || jsonEnd === -1) {
+        console.error("No JSON array found in the API response:", content);
+        return { error: "Failed to find valid JSON in the API's response.", rawResponse: content };
+    }
+
+    const cleanedContent = content.substring(jsonStart, jsonEnd + 1);
 
     try {
       const analysis: ArticleAnalysis[] = JSON.parse(cleanedContent);
       return { analysis, rawResponse: data };
     } catch (e: any) {
-      console.error("Failed to parse JSON from API response:", e);
+      console.error("Failed to parse JSON from API response:", e, "Cleaned content:", cleanedContent);
       return { error: "Failed to parse the analysis from the API's response.", rawResponse: content };
     }
 
   } catch (e: any) {
     console.error(`Error analyzing ticker ${tickerOrName}:`, e);
     return {
-      error: e.message || `An unexpected error occurred while analyzing ${tickerOrName}.`,
+      error: e.message || `An unexpected error occurred while analyzing ${tickerOrname}.`,
     };
   }
 }
