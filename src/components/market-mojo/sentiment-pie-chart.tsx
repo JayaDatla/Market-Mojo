@@ -124,6 +124,7 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
                   background: "hsl(var(--background))",
                   borderColor: "hsl(var(--border))",
                   borderRadius: "var(--radius)",
+                  color: "hsl(var(--foreground))"
                 }}
                 formatter={(value: number, name: string) => [`${value} articles`, name]}
               />

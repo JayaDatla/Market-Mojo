@@ -134,7 +134,7 @@ export default function MarketMojoDashboard() {
           </Accordion>
         )}
         
-        {isLoading && hasSearched ? (
+        {isLoading ? (
           <div className="text-center py-16">
             <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
             <p className="text-muted-foreground mt-4">Analyzing {userInput}...</p>
