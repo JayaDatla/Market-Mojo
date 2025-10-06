@@ -15,27 +15,27 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import InvestmentSuggestion from './investment-suggestion';
-import { subDays, format } from 'date-fns';
 
-type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[] }>;
+type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[], currency: string }>;
 
-function generatePriceData(ticker: string): PriceData[] {
-  const data: PriceData[] = [];
-  let price = 50 + Math.random() * 200; // Start with a random base price
-  const volatility = 0.1; // Max 10% change per day
+async function fetchHistoricalData(ticker: string): Promise<{ historicalData: PriceData[], currency: string }> {
+    try {
+        const response = await fetch(`/api/stock-data?query=${encodeURIComponent(ticker)}`);
 
-  for (let i = 30; i >= 0; i--) {
-    const changePercent = (Math.random() - 0.5) * 2 * volatility;
-    price *= (1 + changePercent);
-    price = Math.max(price, 1); // Ensure price doesn't go below 1
-
-    const date = subDays(new Date(), i);
-    data.push({
-      date: format(date, 'yyyy-MM-dd'),
-      price: parseFloat(price.toFixed(2)),
-    });
-  }
-  return data;
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+            console.error(`Failed to fetch historical data for ${ticker}:`, errorData.error || response.statusText);
+            return { historicalData: [], currency: 'USD' };
+        }
+        const data = await response.json();
+        return {
+            historicalData: data.historicalData || [],
+            currency: data.currency || 'USD'
+        };
+    } catch (error: any) {
+        console.error(`Network or other error fetching historical data for ${ticker}:`, error);
+        return { historicalData: [], currency: 'USD' };
+    }
 }
 
 
@@ -80,7 +80,7 @@ export default function MarketMojoDashboard() {
             setPriceData(cached.prices);
             setRawApiData(cached.analysis.rawResponse);
             setTicker(articles[0]?.ticker || normalizedInput);
-            setCurrency(articles[0]?.currency || 'USD');
+            setCurrency(cached.currency);
             setHasSearched(true);
             setNoResults(false);
             toast({
@@ -105,20 +105,27 @@ export default function MarketMojoDashboard() {
         const articles = processAnalysisResult(analysisResult);
         const identifiedTicker = articles[0].ticker;
         
-        const generatedPriceData = generatePriceData(identifiedTicker);
-        const identifiedCurrency = articles[0].currency || 'USD';
+        const { historicalData: fetchedPriceData, currency: fetchedCurrency } = await fetchHistoricalData(identifiedTicker);
 
         setNewsData(articles);
-        setPriceData(generatedPriceData);
+        setPriceData(fetchedPriceData);
         setRawApiData(analysisResult.rawResponse);
         setTicker(identifiedTicker);
-        setCurrency(identifiedCurrency);
-        setNoResults(false);
+        setCurrency(fetchedCurrency || articles[0].currency || 'USD');
+        setNoResults(fetchedPriceData.length === 0);
+        
+        if (fetchedPriceData.length === 0) {
+          toast({
+            variant: 'default',
+            title: 'Partial Data',
+            description: `Could not fetch historical price data for ${identifiedTicker}. Displaying sentiment analysis only.`,
+          });
+        }
 
         setAnalysisCache(prevCache => ({
           ...prevCache,
-          [normalizedInput]: { analysis: analysisResult, prices: generatedPriceData },
-          ...(identifiedTicker !== normalizedInput && { [identifiedTicker]: { analysis: analysisResult, prices: generatedPriceData } }),
+          [normalizedInput]: { analysis: analysisResult, prices: fetchedPriceData, currency: fetchedCurrency },
+          ...(identifiedTicker !== normalizedInput && { [identifiedTicker]: { analysis: analysisResult, prices: fetchedPriceData, currency: fetchedCurrency } }),
         }));
       } else {
         setRawApiData(analysisResult);
@@ -146,8 +153,8 @@ export default function MarketMojoDashboard() {
   const displayTicker = (newsData.length > 0 ? newsData[0].ticker : ticker).toUpperCase();
   
   const isLoading = isAnalyzing;
-  const showDashboard = newsData.length > 0 && hasSearched;
-  const showNoResults = noResults && hasSearched && !isLoading;
+  const showDashboard = hasSearched && !isLoading && newsData.length > 0;
+  const showNoResults = noResults && hasSearched && !isLoading && newsData.length === 0;
 
   return (
     <div className="flex flex-col min-h-screen">
