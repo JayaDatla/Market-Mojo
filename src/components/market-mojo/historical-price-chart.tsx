@@ -11,6 +11,7 @@ import { DropShadowFilter } from '@/components/ui/filters';
 interface HistoricalPriceChartProps {
     priceData: PriceData[];
     sentimentScore: number;
+    exchange: string;
     currency?: string;
 }
 
@@ -44,7 +45,7 @@ const calculateTrend = (data: {x: number; y: number}[]) => {
     return { slope, intercept };
 };
 
-export default function HistoricalPriceChart({ priceData, sentimentScore, currency = 'USD' }: HistoricalPriceChartProps) {
+export default function HistoricalPriceChart({ priceData, sentimentScore, exchange, currency = 'USD' }: HistoricalPriceChartProps) {
     const { chartData, prediction, trendColor, TrendIcon, yAxisDomain } = useMemo(() => {
         if (!priceData || priceData.length === 0) {
             return { chartData: [], prediction: null, trendColor: 'text-gray-500', TrendIcon: Minus, yAxisDomain: [0, 100] };
@@ -108,13 +109,13 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, curren
                         <AreaChart className="h-5 w-5 text-primary" />
                         30-Day Price History
                     </CardTitle>
-                    <CardDescription>Historical stock performance and AI-driven trend analysis.</CardDescription>
+                    <CardDescription>No historical price data available for this ticker.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="h-[250px] flex items-center justify-center bg-background/50 rounded-md">
                         <div className="text-center text-muted-foreground">
-                            <p>No historical price data available for this ticker.</p>
-                            <p className="text-xs">This feature is currently available for select tickers.</p>
+                            <p>Could not fetch historical price data.</p>
+                            <p className="text-xs">This feature may not be available for all tickers.</p>
                         </div>
                     </div>
                 </CardContent>
@@ -130,7 +131,9 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, curren
                         <AreaChart className="h-5 w-5 text-primary" />
                         30-Day Price History
                     </CardTitle>
-                    <CardDescription>Historical stock performance and AI-driven trend analysis.</CardDescription>
+                    <CardDescription>
+                        {exchange} &middot; AI-driven trend analysis.
+                    </CardDescription>
                 </div>
                 {prediction && (
                     <div className={`flex items-center gap-2 text-sm font-semibold ${trendColor}`}>

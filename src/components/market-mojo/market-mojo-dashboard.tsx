@@ -146,7 +146,8 @@ export default function MarketMojoDashboard() {
                   <HistoricalPriceChart 
                     priceData={priceData} 
                     sentimentScore={selectedTickerData.analysis_summary.average_sentiment_score} 
-                    currency={selectedTickerData.currency} 
+                    currency={selectedTickerData.currency}
+                    exchange={selectedTickerData.exchange}
                   />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <InvestmentSuggestion tickerData={selectedTickerData} />
