@@ -85,16 +85,16 @@ export async function fetchAndAnalyzeNews(
         return { error: "No content returned from the API." };
     }
     
-    // Find the start and end of the JSON array
-    const jsonStart = content.indexOf('[');
-    const jsonEnd = content.lastIndexOf(']');
-    
-    if (jsonStart === -1 || jsonEnd === -1) {
+    // Regex to find JSON within ```json ... ``` or a raw array.
+    const jsonRegex = /(?:```json\s*)?(\[.*\])/s;
+    const match = content.match(jsonRegex);
+
+    if (!match || !match[1]) {
         console.error("No JSON array found in the API response:", content);
         return { error: "Failed to find valid JSON in the API's response.", rawResponse: content };
     }
-
-    const cleanedContent = content.substring(jsonStart, jsonEnd + 1);
+    
+    const cleanedContent = match[1];
 
     try {
       const analysis: ArticleAnalysis[] = JSON.parse(cleanedContent);
