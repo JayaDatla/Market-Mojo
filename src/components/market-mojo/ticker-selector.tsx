@@ -11,6 +11,30 @@ interface TickerSelectorProps {
   onSelect: (ticker: Ticker) => void;
 }
 
+// A mapping from Yahoo Finance short codes to full exchange names
+const exchangeNames: Record<string, string> = {
+  'NMS': 'NASDAQ',
+  'NYQ': 'New York Stock Exchange',
+  'PCX': 'NYSE Arca',
+  'ASE': 'NYSE American',
+  'OBB': 'OTC Bulletin Board',
+  'PNK': 'Pink Sheets',
+  'LSE': 'London Stock Exchange',
+  'FRA': 'Frankfurt Stock Exchange',
+  'BSE': 'Bombay Stock Exchange',
+  'NSI': 'NSE (India)',
+  'TOR': 'Toronto Stock Exchange',
+  'IOB': 'London Stock Exchange (IOB)',
+  'BER': 'Berlin Stock Exchange',
+  'MCE': 'Madrid Stock Exchange',
+  'PAR': 'Euronext Paris',
+};
+
+
+const getExchangeFullName = (shortName: string) => {
+    return exchangeNames[shortName] || shortName;
+};
+
 export default function TickerSelector({ tickers, onSelect }: TickerSelectorProps) {
   if (!tickers || tickers.length <= 1) {
     return null;
@@ -24,7 +48,7 @@ export default function TickerSelector({ tickers, onSelect }: TickerSelectorProp
             Confirm Company
         </CardTitle>
         <CardDescription>
-            We found multiple potential matches for your search. Please select the correct company to view its price chart.
+            We found multiple potential matches. Please select the correct company to proceed.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -38,9 +62,11 @@ export default function TickerSelector({ tickers, onSelect }: TickerSelectorProp
             >
               <div className='flex items-center justify-between w-full'>
                 <span className="font-semibold text-sm sm:text-base text-foreground truncate">{ticker.ticker}</span>
-                <span className="text-xs sm:text-sm text-muted-foreground">{ticker.exchange}</span>
+                 <span className="text-xs sm:text-sm text-muted-foreground text-right">
+                   {getExchangeFullName(ticker.exchange)} ({ticker.exchange})
+                </span>
               </div>
-              <span className="text-xs text-muted-foreground text-left w-full truncate">{ticker.companyName}</span>
+              <span className="text-xs text-muted-foreground text-left w-full truncate pt-1">{ticker.companyName}</span>
             </Button>
           ))}
         </div>
