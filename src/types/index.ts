@@ -12,6 +12,7 @@ export type NewsArticle = {
   ticker: string;
   currency?: string;
   companyCountry: string;
+  isTicker: boolean;
 };
 
 // This type now matches the structure of the JSON expected from Perplexity
@@ -24,6 +25,7 @@ export type ArticleAnalysis = {
   ticker: string;
   currency: string;
   companyCountry: string;
+  isTicker: boolean;
 };
 
 // This type represents the direct output from the API call

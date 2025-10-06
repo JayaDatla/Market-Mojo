@@ -47,6 +47,7 @@ export default function MarketMojoDashboard() {
       ticker: item.ticker.toUpperCase(),
       currency: item.currency,
       companyCountry: item.companyCountry,
+      isTicker: item.isTicker,
     }));
   };
 
@@ -61,20 +62,20 @@ export default function MarketMojoDashboard() {
       setTicker(input.toUpperCase());
       setCurrency(undefined);
 
-      // --- Fetch Sentiment and Historical Data in Parallel ---
       const sentimentResult = await fetchAndAnalyzeNews(input);
       
       let finalTicker = input.toUpperCase();
       let finalCurrency = 'USD';
-      let finalCompanyCountry = ''; // Initialize as empty
+      let finalCompanyCountry = '';
+      let isInputTicker = false; // Default to false
 
-      // Process Sentiment Analysis Results First
       if (sentimentResult && !sentimentResult.error && sentimentResult.analysis && sentimentResult.analysis.length > 0) {
         const articles = processAnalysisResult(sentimentResult);
         finalTicker = articles[0].ticker;
         finalCurrency = articles[0].currency || 'USD';
-        finalCompanyCountry = articles[0].companyCountry; // This is now guaranteed by the prompt
-        
+        finalCompanyCountry = articles[0].companyCountry;
+        isInputTicker = articles[0].isTicker; // Get the new flag from the AI response
+
         setNewsData(articles);
         setRawApiData(sentimentResult.rawResponse);
         setTicker(finalTicker);
@@ -89,9 +90,8 @@ export default function MarketMojoDashboard() {
         });
       }
 
-      // If country is not resolved, we cannot reliably fetch historical data.
       if (!finalCompanyCountry) {
-        if (!sentimentResult.error) { // Only show this if sentiment didn't already fail
+        if (!sentimentResult.error) {
             toast({
                 variant: 'destructive',
                 title: 'Missing Data',
@@ -99,12 +99,12 @@ export default function MarketMojoDashboard() {
             });
         }
         setPriceData([]);
-        return; // Stop here if we don't have a country
+        return;
       }
 
-      // Now fetch historical data with resolved info
       try {
-          const historyResponse = await fetch(`/api/stock-data?ticker=${finalTicker}&companyCountry=${finalCompanyCountry}`);
+          // Pass the original input and the new isTicker flag to the API route
+          const historyResponse = await fetch(`/api/stock-data?ticker=${input}&companyCountry=${finalCompanyCountry}&isTicker=${isInputTicker}`);
           if (!historyResponse.ok) {
               const err = await historyResponse.json();
               throw new Error(err.error || 'Unknown error from history API');
