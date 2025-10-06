@@ -25,7 +25,8 @@ const renderActiveShape = (props: any) => {
       startAngle,
       endAngle,
       fill,
-      liftY = 0
+      payload,
+      percent
     } = props;
 
 
@@ -41,7 +42,7 @@ const renderActiveShape = (props: any) => {
         {/* The lifted, glowing slice on hover */}
         <Sector
           cx={cx}
-          cy={cy + liftY}
+          cy={cy}
           innerRadius={innerRadius}
           outerRadius={outerRadius + 6} // Make it pop a bit more
           startAngle={startAngle}
@@ -69,7 +70,6 @@ const renderActiveShape = (props: any) => {
 
 export default function SentimentPieChart({ newsData }: SentimentPieChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [liftAmount, setLiftAmount] = useState(0);
 
   const chartData = useMemo(() => {
     if (!newsData) return [];
@@ -89,19 +89,17 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
 
   const handleMouseEnter = (_: any, index: number) => {
     setActiveIndex(index);
-    setLiftAmount(-10); // Negative value lifts the slice "up"
   };
 
   const handleMouseLeave = () => {
     setActiveIndex(null);
-    setLiftAmount(0); // Return to original position
   };
 
   if (newsData.length === 0) {
     return null;
   }
   
-  const activeData = activeIndex !== null ? chartData[activeIndex] : null;
+  const activeData = activeIndex !== null && chartData[activeIndex] ? chartData[activeIndex] : null;
   const totalValue = useMemo(() => chartData.reduce((sum, entry) => sum + entry.value, 0), [chartData]);
 
 
@@ -123,11 +121,11 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
                     dataKey="value"
                     cx="50%"
                     cy="50%"
-                    innerRadius={70}
-                    outerRadius={100}
+                    innerRadius={60}
+                    outerRadius={90}
                     paddingAngle={3}
                     activeIndex={activeIndex ?? undefined}
-                    activeShape={(props) => renderActiveShape({ ...props, liftY: activeIndex === props.index ? liftAmount : 0 })}
+                    activeShape={renderActiveShape}
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                     isAnimationActive={true}
@@ -144,7 +142,7 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
                 {activeData ? (
                     <>
                         <span className="text-2xl font-bold text-foreground transition-opacity duration-300">
-                           {((activeData.value / totalValue) * 100).toFixed(0)}%
+                           {totalValue > 0 ? ((activeData.value / totalValue) * 100).toFixed(0) : 0}%
                         </span>
                         <span className="text-sm text-muted-foreground transition-opacity duration-300" style={{color: activeData.color}}>
                             {activeData.name}
