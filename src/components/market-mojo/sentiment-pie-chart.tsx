@@ -104,7 +104,7 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
                     data={sentimentDistribution}
                     cx="50%"
                     cy="50%"
-                    innerRadius={0}
+                    innerRadius={60}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
