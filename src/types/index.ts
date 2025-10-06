@@ -40,6 +40,6 @@ export type PriceData = {
   close: number;
   adjClose?: number;
   volume?: number;
-  currency: string;
-  price: number;
 };
+
+    
