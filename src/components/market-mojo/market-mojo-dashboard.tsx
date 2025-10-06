@@ -15,25 +15,24 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import InvestmentSuggestion from './investment-suggestion';
-import { subDays, format } from 'date-fns';
 
 type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[] }>;
 
-const generatePriceData = (basePrice = 150): PriceData[] => {
-  const data = [];
-  let price = basePrice * (0.95 + Math.random() * 0.1); // Start with some variance
-  for (let i = 29; i >= 0; i--) {
-    data.push({
-      date: format(subDays(new Date(), i), 'yyyy-MM-dd'),
-      price: parseFloat(price.toFixed(2)),
-    });
-    const volatility = 0.05; // Max 5% change per day
-    price *= 1 + (Math.random() - 0.5) * 2 * volatility;
-    // Add a slight upward drift
-    price *= 1.001;
-  }
-  return data;
-};
+async function fetchHistoricalData(ticker: string): Promise<PriceData[]> {
+    try {
+        const response = await fetch(`/api/stock-data?ticker=${ticker}`);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to fetch historical data');
+        }
+        const data = await response.json();
+        return data.historicalData;
+    } catch (error) {
+        console.error('Error fetching historical data:', error);
+        return []; // Return empty array on failure
+    }
+}
+
 
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
@@ -68,23 +67,25 @@ export default function MarketMojoDashboard() {
 
     const normalizedInput = input.trim().toUpperCase();
 
+    // Simplified cache check
     if (analysisCache[normalizedInput]) {
-      const cached = analysisCache[normalizedInput];
-      const articles = processAnalysisResult(cached.analysis);
-      setNewsData(articles);
-      setPriceData(cached.prices);
-      setRawApiData(cached.analysis.rawResponse);
-      setTicker(articles[0]?.ticker || normalizedInput);
-      setCurrency(articles[0]?.currency || 'USD');
-      setHasSearched(true);
-      setNoResults(false);
-      toast({
-        title: 'Loaded from Cache',
-        description: `Displaying cached analysis for ${normalizedInput}.`,
-      });
-      return;
+        const cached = analysisCache[normalizedInput];
+        const articles = processAnalysisResult(cached.analysis);
+        if (articles.length > 0) {
+            setNewsData(articles);
+            setPriceData(cached.prices);
+            setRawApiData(cached.analysis.rawResponse);
+            setTicker(articles[0]?.ticker || normalizedInput);
+            setCurrency(articles[0]?.currency || 'USD');
+            setHasSearched(true);
+            setNoResults(false);
+            toast({
+                title: 'Loaded from Cache',
+                description: `Displaying cached analysis for ${normalizedInput}.`,
+            });
+            return;
+        }
     }
-
 
     setHasSearched(true);
     setNoResults(false);
@@ -99,9 +100,10 @@ export default function MarketMojoDashboard() {
       if (analysisResult && !analysisResult.error && analysisResult.analysis && analysisResult.analysis.length > 0) {
         const articles = processAnalysisResult(analysisResult);
         const identifiedTicker = articles[0].ticker;
-        const identifiedCurrency = articles[0].currency || 'USD';
         
-        const historicalData = generatePriceData();
+        // Fetch historical data from our new API route
+        const historicalData = await fetchHistoricalData(identifiedTicker);
+        const identifiedCurrency = historicalData.length > 0 ? (historicalData[0] as any).currency : (articles[0].currency || 'USD');
 
         setNewsData(articles);
         setPriceData(historicalData);
@@ -130,7 +132,7 @@ export default function MarketMojoDashboard() {
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setTickerInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
-  }, [analysisCache, handleAnalysis]);
+  }, [analysisCache]); // Simplified dependency array
 
   const handleViewTicker = () => {
     if (tickerInput) {
