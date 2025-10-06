@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useCallback, useTransition } from 'react';
-import axios from 'axios';
 import { fetchAndAnalyzeNews } from '@/app/actions';
 import type { NewsArticle, TickerAnalysisOutput, PriceData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -16,58 +15,25 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import InvestmentSuggestion from './investment-suggestion';
+import { subDays, format } from 'date-fns';
 
 type AnalysisCache = Record<string, { analysis: TickerAnalysisOutput, prices: PriceData[] }>;
 
-async function fetchHistoricalDataWithFallback(ticker: string): Promise<PriceData[]> {
-  const apiKey = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY;
-  if (!apiKey) {
-    console.error("ALPHA_VANTAGE_API_KEY is not set.");
-    return [];
+const generatePriceData = (basePrice = 150): PriceData[] => {
+  const data = [];
+  let price = basePrice * (0.95 + Math.random() * 0.1); // Start with some variance
+  for (let i = 29; i >= 0; i--) {
+    data.push({
+      date: format(subDays(new Date(), i), 'yyyy-MM-dd'),
+      price: parseFloat(price.toFixed(2)),
+    });
+    const volatility = 0.05; // Max 5% change per day
+    price *= 1 + (Math.random() - 0.5) * 2 * volatility;
+    // Add a slight upward drift
+    price *= 1.001;
   }
-  
-  const fetchFromApi = async (symbol: string) => {
-    const aVUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${apiKey}&outputsize=compact`;
-    try {
-      const response = await axios.get(aVUrl);
-      const data = response.data;
-      
-      if (data['Note'] || data['Error Message']) {
-        console.warn(`Alpha Vantage API issue for ${symbol}:`, data['Note'] || data['Error Message']);
-        return null;
-      }
-
-      const timeSeries = data['Time Series (Daily)'];
-      if (!timeSeries) {
-        console.error(`No time series data found for ticker: ${symbol}`, data);
-        return null;
-      }
-      
-      return Object.entries(timeSeries)
-        .map(([date, values]: [string, any]) => ({
-          date,
-          price: parseFloat(values['4. close']),
-        }))
-        .slice(0, 30)
-        .reverse();
-    } catch (error) {
-      console.error(`Failed to fetch historical data for ${symbol}:`, error);
-      return null;
-    }
-  };
-
-  // 1. Try the original ticker
-  let priceData = await fetchFromApi(ticker);
-  
-  // 2. If it fails and contains a dot, try the part before the dot (e.g., "700.HK" -> "700")
-  if (!priceData && ticker.includes('.')) {
-    console.log(`Fallback 1: Trying base ticker for ${ticker}`);
-    const baseTicker = ticker.split('.')[0];
-    priceData = await fetchFromApi(baseTicker);
-  }
-
-  return priceData || [];
-}
+  return data;
+};
 
 export default function MarketMojoDashboard() {
   const [ticker, setTicker] = useState('');
@@ -135,7 +101,7 @@ export default function MarketMojoDashboard() {
         const identifiedTicker = articles[0].ticker;
         const identifiedCurrency = articles[0].currency || 'USD';
         
-        const historicalData = await fetchHistoricalDataWithFallback(identifiedTicker);
+        const historicalData = generatePriceData();
 
         setNewsData(articles);
         setPriceData(historicalData);

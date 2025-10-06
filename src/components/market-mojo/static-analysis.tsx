@@ -64,7 +64,7 @@ export const industryData: { [key: string]: { industry: string; analysis: string
     analysis: 'Toyota is one of the world\'s largest automakers, known for its reliability and leadership in hybrid vehicles. It is now making a major push into the EV market, leveraging its manufacturing prowess.',
     competitors: ['Volkswagen (VWAGY)', 'General Motors (GM)', 'Tesla (TSLA)'],
   },
-  'VWAGY': {
+    'VWAGY': {
     industry: 'Automotive',
     analysis: 'One of the world\'s largest automakers, Volkswagen Group is aggressively transitioning to electric vehicles to compete with new market entrants. Its performance is heavily linked to global auto sales and its success in the EV race.',
     competitors: ['Toyota (TM)', 'General Motors (GM)', 'Stellantis (STLA)'],
@@ -74,7 +74,7 @@ export const industryData: { [key: string]: { industry: string; analysis: string
     analysis: 'A major integrated energy company, Shell is navigating the global transition towards lower-carbon energy. Its stock is influenced by oil prices, geopolitical events, and its strategic investments in renewable energy sources.',
     competitors: ['ExxonMobil (XOM)', 'Chevron (CVX)', 'BP (BP)'],
   },
-  'TCEHY': {
+  '700.HK': {
     industry: 'Internet & Technology',
     analysis: 'Tencent Holdings is a Chinese multinational conglomerate with subsidiaries in entertainment, AI, and other technology. Its performance is impacted by domestic regulatory changes and its vast portfolio of games and social media.',
     competitors: ['Alibaba (BABA)', 'ByteDance', 'NetEase (NTES)'],
