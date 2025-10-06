@@ -18,7 +18,6 @@ type IndustryData = {
   };
 };
 
-// Function to generate sample historical data for a more realistic but stable demo
 const generateSampleData = (base: number, days: number, volatility: number): PriceData[] => {
   const data: PriceData[] = [];
   let currentDate = new Date();

@@ -85,7 +85,6 @@ export default function MarketMojoDashboard() {
         const articles = processAnalysisResult(analysisResult);
         const identifiedTicker = articles[0].ticker;
         
-        // Use static historical data if available
         const staticTickerData = industryData[identifiedTicker];
         const historicalData = staticTickerData?.historicalData || [];
         const currency = articles[0].currency || 'USD';
