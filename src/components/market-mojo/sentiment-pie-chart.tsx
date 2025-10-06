@@ -30,52 +30,70 @@ const renderActiveShape = (props: any) => {
       fill,
       payload,
       percent,
-      liftY = 0 // Default liftY to 0 if not provided
+      liftY = 0 
     } = props;
 
     const sin = Math.sin(-RADIAN * midAngle);
     const cos = Math.cos(-RADIAN * midAngle);
+    const textAnchor = cos >= 0 ? "start" : "end";
+
+    // Position the label text box
+    const textX = cx + (outerRadius + 15) * cos;
+    const textY = cy + (outerRadius + 15) * sin;
 
     return (
-      <g style={{ transition: "all 0.4s ease-out" }}>
-        {/* Glow filter */}
+      <g>
+        {/* Glow filter definition */}
         <defs>
             <filter id="hover-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor={fill} floodOpacity="0.7" />
+              <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor={fill} floodOpacity="0.7" />
             </filter>
         </defs>
 
-        {/* Lifted slice */}
+        {/* The lifted, glowing slice on hover */}
         <Sector
           cx={cx}
           cy={cy + liftY}
-          innerRadius={innerRadius - 2}
+          innerRadius={innerRadius}
           outerRadius={outerRadius + 4}
           startAngle={startAngle}
           endAngle={endAngle}
           fill={fill}
           filter="url(#hover-glow)"
+          style={{ transition: 'cy 0.3s ease-out' }}
+        />
+        
+        {/* The static base of the donut chart */}
+         <Sector
+          cx={cx}
+          cy={cy}
+          innerRadius={innerRadius}
+          outerRadius={outerRadius}
+          startAngle={startAngle}
+          endAngle={endAngle}
+          fill={fill}
+          opacity={0.3}
         />
 
-        {/* Label */}
+        {/* Label Text */}
         <text
-          x={cx + (outerRadius + 10) * cos}
-          y={cy + liftY + (outerRadius + 10) * sin}
-          textAnchor={cos >= 0 ? "start" : "end"}
-          fill="#ffffff"
-          fontWeight={700}
+          x={textX}
+          y={textY}
+          textAnchor={textAnchor}
+          fill="hsl(var(--foreground))"
+          fontWeight={600}
           fontSize={14}
         >
           {payload.name}
         </text>
         <text
-          x={cx + (outerRadius + 10) * cos}
-          y={cy + liftY + (outerRadius + 30) * sin}
-          textAnchor={cos >= 0 ? "start" : "end"}
-          fill="#cccccc"
+          x={textX}
+          y={textY + 20}
+          textAnchor={textAnchor}
+          fill="hsl(var(--muted-foreground))"
           fontSize={13}
         >
-          {`${(percent * 100).toFixed(0)}%`}
+          {`(${(percent * 100).toFixed(0)}%)`}
         </text>
       </g>
     );
@@ -104,13 +122,12 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
 
   const handleMouseEnter = (_: any, index: number) => {
     setActiveIndex(index);
-    setLiftAmount(-10); // slice lifts up
+    setLiftAmount(-10); // Negative value lifts the slice "up"
   };
 
   const handleMouseLeave = () => {
     setActiveIndex(null);
-    // Smoothly lower the slice
-    setLiftAmount(0);
+    setLiftAmount(0); // Return to original position
   };
 
   if (newsData.length === 0) {
@@ -128,18 +145,18 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
       </CardHeader>
       <CardContent>
           <div className="flex items-center justify-center rounded-2xl p-0">
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
                 <Pie
                     data={chartData}
                     dataKey="value"
                     cx="50%"
                     cy="50%"
-                    innerRadius={80}
-                    outerRadius={120}
+                    innerRadius={60}
+                    outerRadius={90}
                     paddingAngle={3}
                     activeIndex={activeIndex ?? undefined}
-                    activeShape={(props) => renderActiveShape({ ...props, liftY: liftAmount })}
+                    activeShape={(props) => renderActiveShape({ ...props, liftY: activeIndex === props.index ? liftAmount : 0 })}
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                     isAnimationActive={true}
