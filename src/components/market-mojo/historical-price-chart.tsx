@@ -14,6 +14,21 @@ interface HistoricalPriceChartProps {
     currency?: string;
 }
 
+const currencySymbolMap: { [key: string]: string } = {
+    USD: '$',
+    EUR: '€',
+    JPY: '¥',
+    GBP: '£',
+    INR: '₹',
+    AUD: 'A$',
+    CAD: 'C$',
+    CHF: 'Fr',
+    CNY: '¥',
+    HKD: 'HK$',
+    NZD: 'NZ$',
+    KRW: '₩',
+};
+
 // Linear regression to find the trend
 const calculateTrend = (data: {x: number; y: number}[]) => {
     const n = data.length;
@@ -30,17 +45,23 @@ const calculateTrend = (data: {x: number; y: number}[]) => {
 };
 
 export default function HistoricalPriceChart({ priceData, sentimentScore, currency = 'USD' }: HistoricalPriceChartProps) {
-
-    const { chartData, prediction, trendColor, TrendIcon } = useMemo(() => {
+    const { chartData, prediction, trendColor, TrendIcon, yAxisDomain } = useMemo(() => {
         if (!priceData || priceData.length === 0) {
-            return { chartData: [], prediction: null, trendColor: 'text-gray-500', TrendIcon: Minus };
+            return { chartData: [], prediction: null, trendColor: 'text-gray-500', TrendIcon: Minus, yAxisDomain: [0, 100] };
         }
 
-        const formattedData = priceData.map((d, i) => ({
-            name: d.date.substring(5), // "MM-DD"
-            price: d.close,
-            day: i
-        }));
+        let minPrice = Infinity;
+        let maxPrice = -Infinity;
+
+        const formattedData = priceData.map((d, i) => {
+            if (d.close < minPrice) minPrice = d.close;
+            if (d.close > maxPrice) maxPrice = d.close;
+            return {
+                name: d.date.substring(5), // "MM-DD"
+                price: d.close,
+                day: i
+            };
+        });
 
         const trendData = formattedData.map(d => ({ x: d.day, y: d.price }));
         const trend = calculateTrend(trendData);
@@ -54,19 +75,30 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, curren
         let color = 'text-gray-500';
         let icon = Minus;
 
-        if (trend.slope > 0 && sentimentScore > 0.1) {
+        if (trend.slope > 0.01 * minPrice) { // Trend is significantly upward
             pred = 'Up';
             color = 'text-green-500';
             icon = TrendingUp;
-        } else if (trend.slope < 0 && sentimentScore < -0.1) {
+        } else if (trend.slope < -0.01 * minPrice) { // Trend is significantly downward
             pred = 'Down';
             color = 'text-red-500';
             icon = TrendingDown;
         }
 
-        return { chartData: fullChartData, prediction: pred, trendColor: color, TrendIcon: icon };
+        const padding = (maxPrice - minPrice) * 0.1; // 10% padding
+        const yDomain: [number, number] = [Math.max(0, Math.floor(minPrice - padding)), Math.ceil(maxPrice + padding)];
+
+        return { 
+            chartData: fullChartData, 
+            prediction: pred, 
+            trendColor: color, 
+            TrendIcon: icon,
+            yAxisDomain: yDomain
+        };
 
     }, [priceData, sentimentScore]);
+
+    const getCurrencySymbol = (code: string) => currencySymbolMap[code] || `${code} `;
 
     if (!priceData || priceData.length === 0) {
         return (
@@ -115,7 +147,14 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, curren
                                 <DropShadowFilter id="chart-shadow" />
                             </defs>
                             <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${currency} ${value}`} />
+                            <YAxis 
+                                domain={yAxisDomain}
+                                stroke="hsl(var(--muted-foreground))" 
+                                fontSize={12} 
+                                tickLine={false} 
+                                axisLine={false} 
+                                tickFormatter={(value) => `${getCurrencySymbol(currency)}${value}`}
+                            />
                             <Tooltip
                                 contentStyle={{
                                     background: "hsl(var(--background))",
@@ -124,7 +163,7 @@ export default function HistoricalPriceChart({ priceData, sentimentScore, curren
                                     boxShadow: "0 4px 12px hsla(0, 0%, 0%, 0.1)"
                                 }}
                                 cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '3 3' }}
-                                 formatter={(value: number, name: string) => [name === 'price' ? value.toFixed(2) : value.toFixed(2), name === 'price' ? 'Price' : 'Trend']}
+                                 formatter={(value: number, name: string) => [name === 'price' ? `${getCurrencySymbol(currency)}${value.toFixed(2)}` : value.toFixed(2), name === 'price' ? 'Price' : 'Trend']}
                             />
                             <Line
                                 type="monotone"
