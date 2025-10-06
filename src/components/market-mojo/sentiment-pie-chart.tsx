@@ -31,9 +31,9 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
 export default function SentimentPieChart({ newsData }: SentimentPieChartProps) {
   const sentimentDistribution = useMemo(() => {
     if (!newsData) return [];
-    const counts = { Positive: 0, Neutral: 0, Negative: 0 };
+    const counts: Record<'Positive' | 'Neutral' | 'Negative', number> = { Positive: 0, Neutral: 0, Negative: 0 };
     newsData.forEach(article => {
-      counts[article.sentimentLabel]++;
+      counts[article.sentiment]++;
     });
     return [
       { name: 'Positive', value: counts.Positive, color: 'hsl(142.1 76.2% 36.3%)' }, // Green

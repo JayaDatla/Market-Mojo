@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { TickerAnalysisOutput, ArticleAnalysis } from '@/types';
+import type { TickerAnalysisOutput } from '@/types';
 
 const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
 const PERPLEXITY_MODEL = "sonar";
@@ -10,36 +10,64 @@ const PERPLEXITY_MODEL = "sonar";
 const analysisCache = new Map<string, { timestamp: number; data: TickerAnalysisOutput }>();
 const CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
-const generatePrompt = (tickerOrName: string) => `
-You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to a specific company and its primary stock ticker.
+const generatePrompt = (companyIdentifier: string) => `
+You are a highly specialized Global Financial Sentiment Analyst. Your sole function is to assess the market-moving sentiment of news related to major global companies.
 
-The user has provided the following identifier: "${tickerOrName}".
+The user has provided the following identifier: "${companyIdentifier}". This identifier could be a company name, ticker symbol, or other public reference.
 
-Your tasks are:
-1.  **Analyze the Input**: Determine if the input string is a stock ticker symbol (e.g., "AAPL", "TATAMOTORS.NS") or a company name (e.g., "Apple", "Tata Motors"). You MUST set the 'isTicker' boolean field in your response accordingly. This is a critical field.
-2.  **Identify the Company and Ticker**: From the input, identify the precise company name and its primary stock ticker symbol. You MUST prioritize the main listing. For example, for "Tata Motors", the primary ticker is "TATAMOTORS.NS", not the US-listed "TTM". For "BP", it's "BP.L", not the US-listed "BP".
-3.  **Identify Country of Origin**: Find the company's country of origin. This is essential for resolving the correct stock exchange. For example, Tata Motors is from "India", BP is from the "United Kingdom". You MUST return this in the 'companyCountry' field.
-4.  **Determine Currency**: Find the three-letter currency code for that primary exchange (e.g., "INR" for NSE, "USD" for NASDAQ, "GBP" for LSE).
-5.  **Analyze News**: Search the web for the top 5 most recent and credible news articles about the company from the **last 30 days**. Focus on financial performance, product launches, or market-moving events.
-6.  **Extract Financial Sentiment**: For each article, provide a one-sentence summary of its financial impact, a sentiment classification ("Positive", "Negative", or "Neutral"), and a sentiment score from -1.0 to 1.0.
+First, determine:
+1. The exact company name.  
+2. All publicly traded ticker symbols and their associated listing exchanges.  
+3. The three-letter currency code corresponding to each exchange (e.g., "USD" for NASDAQ, "JPY" for Tokyo Stock Exchange, "INR" for NSE India).
 
-**Output Format**: You MUST return the data as a single, valid JSON object. Do not include any text, explanations, or markdown formatting outside of the JSON object. The object must contain a single key "analysis" which holds an array of article objects. The structure must be exactly as follows:
+If the company is dual-listed (actively traded on more than one exchange), generate separate analyses for each listing using the correct ticker and currency.
+
+Next, search for the top 5 most recent credible financial news articles from the past 30 days related to the company's financial performance, operations, or other material developments that could affect investor sentiment or stock price.
+
+Analyze each article snippet solely for its relevance to investor perception and share price influence, ignoring non-financial or unrelated context.
+
+For each article, return:
+- title  
+- url  
+- one-sentence financial impact summary  
+- sentiment classification: "Positive", "Negative", or "Neutral"  
+- sentiment_score: a numeric value from -1.0 (strongly negative) to 1.0 (strongly positive)  
+- ticker  
+- currency
+
+After processing all articles (maximum 5 per ticker), compute a summary of the overall sentiment across the most relevant articles, including:
+- the average sentiment score  
+- the dominant sentiment classification (based on majority or average polarity)  
+- a brief 2–3 sentence summary of the general investor outlook for the company over the past 30 days.
+
+Return all information as a single valid JSON object with the exact structure:
 
 {
-  "analysis": [
+  "company": "Exact Company Name",
+  "tickers": [
     {
-      "title": "...",
-      "url": "...",
-      "summary": "...",
-      "sentiment": "Positive" | "Negative" | "Neutral",
-      "sentiment_score": ...,
       "ticker": "...",
+      "exchange": "...",
       "currency": "...",
-      "companyCountry": "...",
-      "isTicker": true | false
+      "articles": [
+        {
+          "title": "...",
+          "url": "...",
+          "summary": "...",
+          "sentiment": "Positive" | "Negative" | "Neutral",
+          "sentiment_score": ...
+        }
+      ],
+      "analysis_summary": {
+        "average_sentiment_score": ...,
+        "dominant_sentiment": "Positive" | "Negative" | "Neutral",
+        "investor_outlook": "..."
+      }
     }
   ]
 }
+
+Ensure the JSON is strictly valid and contains no additional text, explanations, or formatting outside of the JSON structure.
 `;
 
 
@@ -106,20 +134,16 @@ export async function fetchAndAnalyzeNews(
     const cleanedContent = match[1];
 
     try {
-      const parsedJson: { analysis: ArticleAnalysis[] } = JSON.parse(cleanedContent);
-      const analysis = parsedJson.analysis;
-      const result: TickerAnalysisOutput = { analysis, rawResponse: data };
+      const parsedJson: TickerAnalysisOutput = JSON.parse(cleanedContent);
       
       // If analysis is successful and contains data, cache it.
-      if (analysis && analysis.length > 0 && analysis[0].ticker) {
-        // Use the identified ticker from the response for caching consistency.
-        const finalTicker = analysis[0].ticker.toUpperCase();
-        analysisCache.set(finalTicker, { timestamp: Date.now(), data: result });
-        // Also cache under the original user input.
-        analysisCache.set(normalizedInput, { timestamp: Date.now(), data: result });
+      if (parsedJson.company && parsedJson.tickers && parsedJson.tickers.length > 0) {
+        const finalTicker = parsedJson.tickers[0].ticker.toUpperCase();
+        analysisCache.set(finalTicker, { timestamp: Date.now(), data: parsedJson });
+        analysisCache.set(normalizedInput, { timestamp: Date.now(), data: parsedJson });
       }
       
-      return result;
+      return {...parsedJson, rawResponse: data};
     } catch (e: any) {
       console.error("Failed to parse JSON from API response:", e, "Cleaned content:", cleanedContent);
       const result: TickerAnalysisOutput = { error: "Failed to parse the analysis from the API's response.", rawResponse: content };

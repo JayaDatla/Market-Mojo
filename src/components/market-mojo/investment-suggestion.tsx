@@ -4,12 +4,12 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { NewsArticle } from '@/types';
+import type { TickerAnalysis } from '@/types';
 import { ChevronsUp, ChevronUp, ChevronsDown, ChevronDown, Minus, Award } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface InvestmentSuggestionProps {
-  newsData: NewsArticle[];
+  tickerData: TickerAnalysis;
 }
 
 type SuggestionLevel = 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
@@ -27,39 +27,26 @@ const suggestionStyles: Record<SuggestionLevel, {
 };
 
 
-export default function InvestmentSuggestion({ newsData }: InvestmentSuggestionProps) {
+export default function InvestmentSuggestion({ tickerData }: InvestmentSuggestionProps) {
 
-  const { suggestion, reason, averageScore, confidence, confidenceValue } = useMemo(() => {
-    if (!newsData || newsData.length === 0) {
+  const { suggestion, confidence, confidenceValue } = useMemo(() => {
+    if (!tickerData || !tickerData.analysis_summary) {
       return { suggestion: null };
     }
 
-    const totalScore = newsData.reduce((acc, article) => acc + article.sentimentScore, 0);
-    const avgScore = totalScore / newsData.length;
+    const { average_sentiment_score, dominant_sentiment } = tickerData.analysis_summary;
     
     let level: SuggestionLevel = 'Hold';
-    let analysis = '';
     let conf: ConfidenceLevel = 'Low';
     let confValue = 0;
 
-    const absScore = Math.abs(avgScore);
+    const absScore = Math.abs(average_sentiment_score);
 
-    if (avgScore > 0.35) {
-      level = 'Strong Buy';
-      analysis = 'Sentiment from recent news is overwhelmingly positive.';
-    } else if (avgScore > 0.1) {
-      level = 'Buy';
-      analysis = 'News sentiment is generally positive.';
-    } else if (avgScore < -0.35) {
-      level = 'Strong Sell';
-      analysis = 'Sentiment from recent news is overwhelmingly negative.';
-    } else if (avgScore < -0.1) {
-      level = 'Sell';
-      analysis = 'News sentiment is largely negative.';
-    } else {
-      level = 'Hold';
-      analysis = 'News sentiment is mixed or neutral. Wait for a clearer signal.';
-    }
+    if (average_sentiment_score > 0.35) level = 'Strong Buy';
+    else if (average_sentiment_score > 0.1) level = 'Buy';
+    else if (average_sentiment_score < -0.35) level = 'Strong Sell';
+    else if (average_sentiment_score < -0.1) level = 'Sell';
+    else level = 'Hold';
 
     confValue = Math.min((absScore / 0.5) * 100, 100);
     
@@ -67,28 +54,23 @@ export default function InvestmentSuggestion({ newsData }: InvestmentSuggestionP
       confValue = 100 - confValue;
     }
 
-    if (confValue > 70) {
-      conf = 'High';
-    } else if (confValue > 40) {
-      conf = 'Medium';
-    } else {
-      conf = 'Low';
-    }
+    if (confValue > 70) conf = 'High';
+    else if (confValue > 40) conf = 'Medium';
+    else conf = 'Low';
 
     return { 
         suggestion: level, 
-        reason: analysis, 
-        averageScore: avgScore,
         confidence: conf,
         confidenceValue: confValue,
     };
-  }, [newsData]);
+  }, [tickerData]);
 
-  if (!suggestion) {
+  if (!suggestion || !tickerData.analysis_summary) {
     return null;
   }
   
   const style = suggestionStyles[suggestion];
+  const { average_sentiment_score, investor_outlook } = tickerData.analysis_summary;
 
   return (
     <Card className="bg-card border-border/50">
@@ -108,13 +90,13 @@ export default function InvestmentSuggestion({ newsData }: InvestmentSuggestionP
                 </div>
             </Badge>
         </div>
-        <p className="text-sm text-center text-muted-foreground">{reason}</p>
+        <p className="text-sm text-center text-muted-foreground">{investor_outlook}</p>
 
         <div className="space-y-4">
              <div className="grid grid-cols-1 gap-4 text-center pt-2">
                 <div>
-                     <div className={`text-xl font-bold ${averageScore > 0.1 ? 'text-green-500' : averageScore < -0.1 ? 'text-red-500' : 'text-gray-500'}`}>
-                        {averageScore.toFixed(2)}
+                     <div className={`text-xl font-bold ${average_sentiment_score > 0.1 ? 'text-green-500' : average_sentiment_score < -0.1 ? 'text-red-500' : 'text-gray-500'}`}>
+                        {average_sentiment_score.toFixed(2)}
                     </div>
                     <div className="text-xs text-muted-foreground">Overall Sentiment Score</div>
                 </div>

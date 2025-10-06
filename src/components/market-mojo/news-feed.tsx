@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,13 +42,13 @@ export default function NewsFeed({ newsData }: NewsFeedProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {newsData.map((article) => {
-            const style = sentimentStyles[article.sentimentLabel];
+          {newsData.map((article, index) => {
+            const style = sentimentStyles[article.sentiment];
             return (
-              <div key={article.id} className="p-4 rounded-lg border border-border/50 bg-background/50 hover:bg-card/50 transition-colors">
+              <div key={`${article.url}-${index}`} className="p-4 rounded-lg border border-border/50 bg-background/50 hover:bg-card/50 transition-colors">
                 <div className="flex justify-between items-start gap-4">
-                  <h3 className="font-semibold text-base mb-1 text-foreground">{article.newsTitle}</h3>
-                  <Link href={article.sourceUri} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex-shrink-0">
+                  <h3 className="font-semibold text-base mb-1 text-foreground">{article.title}</h3>
+                  <Link href={article.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex-shrink-0">
                     <ExternalLink className="h-4 w-4" />
                   </Link>
                 </div>
@@ -56,11 +57,11 @@ export default function NewsFeed({ newsData }: NewsFeedProps) {
                    <Badge variant={style.variant} className={style.className}>
                     <div className="flex items-center gap-1.5">
                       {style.icon}
-                      {article.sentimentLabel}
+                      {article.sentiment}
                     </div>
                   </Badge>
                   <span className="text-sm font-mono text-muted-foreground">
-                    Score: {article.sentimentScore.toFixed(2)}
+                    Score: {article.sentiment_score.toFixed(2)}
                   </span>
                 </div>
               </div>

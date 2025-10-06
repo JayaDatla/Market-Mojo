@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useTransition } from 'react';
 import { fetchAndAnalyzeNews } from '@/app/actions';
-import type { NewsArticle, TickerAnalysisOutput, PriceData } from '@/types';
+import type { NewsArticle, TickerAnalysis, TickerAnalysisOutput, PriceData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
@@ -17,79 +17,36 @@ import InvestmentSuggestion from './investment-suggestion';
 import SentimentPieChart from './sentiment-pie-chart';
 import HistoricalPriceChart from './historical-price-chart';
 
-function getStaticPriceData(ticker: string): PriceData[] | undefined {
-    const companyData = industryData[ticker.toUpperCase()];
-    return companyData?.historicalData;
-}
-
 export default function MarketMojoDashboard() {
-  const [ticker, setTicker] = useState('');
-  const [tickerInput, setTickerInput] = useState('');
-  const [newsData, setNewsData] = useState<NewsArticle[]>([]);
+  const [userInput, setUserInput] = useState('');
+  const [analysisResult, setAnalysisResult] = useState<TickerAnalysisOutput | null>(null);
+  const [selectedTickerData, setSelectedTickerData] = useState<TickerAnalysis | null>(null);
   const [priceData, setPriceData] = useState<PriceData[]>([]);
-  const [currency, setCurrency] = useState<string | undefined>(undefined);
-  const [rawApiData, setRawApiData] = useState<any>(null);
 
   const [isAnalyzing, startTransition] = useTransition();
   const [hasSearched, setHasSearched] = useState(false);
   const { toast } = useToast();
-
-  const processAnalysisResult = (analysisResult: TickerAnalysisOutput) => {
-    if (!analysisResult.analysis || analysisResult.analysis.length === 0) return [];
-    return analysisResult.analysis.map((item, index) => ({
-      id: `${item.ticker}-${index}-${Date.now()}`,
-      newsTitle: item.title,
-      summary: item.summary,
-      sentimentScore: item.sentiment_score,
-      sentimentLabel: item.sentiment,
-      sourceUri: item.url,
-      timestamp: { toDate: () => new Date() } as any,
-      ticker: item.ticker.toUpperCase(),
-      currency: item.currency,
-      companyCountry: item.companyCountry,
-      isTicker: item.isTicker,
-    }));
-  };
 
   const handleAnalysis = (input: string) => {
     if (!input) return;
 
     startTransition(async () => {
       setHasSearched(true);
-      setNewsData([]);
+      setAnalysisResult(null);
+      setSelectedTickerData(null);
       setPriceData([]);
-      setRawApiData(null);
-      setTicker(input.toUpperCase());
-      setCurrency(undefined);
-
-      // We still need the sentiment analysis to get company info
-      const sentimentResult = await fetchAndAnalyzeNews(input);
       
-      let finalTicker = input.toUpperCase();
+      const result = await fetchAndAnalyzeNews(input);
+      setAnalysisResult(result);
 
-      if (sentimentResult && !sentimentResult.error && sentimentResult.analysis && sentimentResult.analysis.length > 0) {
-        const articles = processAnalysisResult(sentimentResult);
-        finalTicker = articles[0].ticker; // Use the ticker resolved by the AI
-
-        setNewsData(articles);
-        setRawApiData(sentimentResult.rawResponse);
-        setTicker(finalTicker);
-        setCurrency(articles[0].currency || 'USD');
-      } else {
-        setRawApiData(sentimentResult);
-        setTicker(input.toUpperCase());
-        toast({
-          variant: 'destructive',
-          title: 'Sentiment Analysis Failed',
-          description: sentimentResult?.error || 'No news articles could be analyzed for this ticker.',
-        });
-        // Even if sentiment fails, we can still try to get price data
-      }
-
-      // Fetch historical data using the new, simpler API
-      try {
-          // The new API just needs the user's original input string
-          const historyResponse = await fetch(`/api/stock-data?ticker=${encodeURIComponent(input)}`);
+      if (result && !result.error && result.tickers && result.tickers.length > 0) {
+        // Default to the first ticker returned by the analysis
+        const primaryTickerData = result.tickers[0];
+        setSelectedTickerData(primaryTickerData);
+        
+        // Fetch historical data for the primary ticker
+        try {
+          const historyResponse = await fetch(`/api/stock-data?ticker=${encodeURIComponent(primaryTickerData.ticker)}`);
           
           if (!historyResponse.ok) {
               const err = await historyResponse.json();
@@ -99,66 +56,45 @@ export default function MarketMojoDashboard() {
           const historyResult = await historyResponse.json();
 
           if (historyResult && historyResult.length > 0) {
-              setPriceData(historyResult.map((d: any) => ({ date: d.date.split('T')[0], close: d.close })));
-              // Set currency from historical data if available
-              if (historyResult[0].currency) {
-                  setCurrency(historyResult[0].currency);
-              }
+              setPriceData(historyResult);
           } else {
-              // Attempt to fall back to static data if API returns empty but valid response
-               const staticData = getStaticPriceData(finalTicker);
-               if (staticData) {
-                   setPriceData(staticData);
-                   toast({
-                       variant: 'default',
-                       title: 'Data Notice',
-                       description: `Could not fetch live historical data. Showing static data for ${finalTicker}.`,
-                   });
-               } else {
-                 setPriceData([]);
-               }
+             setPriceData([]);
           }
-      } catch (e: any) {
-          console.warn(`Dynamic historical data fetch failed for ${input}:`, e.message);
-          const staticData = getStaticPriceData(finalTicker);
-          if (staticData) {
-              setPriceData(staticData);
-              toast({
-                  variant: 'default',
-                  title: 'Data Notice',
-                  description: `Could not fetch live historical data. Showing static data for ${finalTicker}.`,
-              });
-          } else {
-              setPriceData([]);
-              if (!sentimentResult.error) { // Only show this if sentiment didn't also fail
-                  toast({
-                      variant: 'default',
-                      title: 'Historical Data Notice',
-                      description: `Could not fetch historical price data for ${input}.`,
-                  });
-              }
-          }
+        } catch (e: any) {
+          console.warn(`Dynamic historical data fetch failed for ${primaryTickerData.ticker}:`, e.message);
+          setPriceData([]);
+          toast({
+              variant: 'default',
+              title: 'Historical Data Notice',
+              description: `Could not fetch historical price data for ${primaryTickerData.ticker}.`,
+          });
+        }
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Analysis Failed',
+          description: result?.error || 'No analysis could be performed for this input.',
+        });
       }
     });
   };
 
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
-    setTickerInput(tickerToAnalyze);
+    setUserInput(tickerToAnalyze);
     handleAnalysis(tickerToAnalyze);
   }, []);
 
   const handleViewTicker = () => {
-    if (tickerInput) {
-      handleAnalysis(tickerInput);
+    if (userInput) {
+      handleAnalysis(userInput);
     }
   };
-  
-  const displayTicker = ticker.toUpperCase();
-  const averageSentiment = newsData.reduce((acc, article) => acc + article.sentimentScore, 0) / (newsData.length || 1);
 
   const isLoading = isAnalyzing;
-  const showDashboard = hasSearched && !isLoading;
-  const showNoResults = hasSearched && !isLoading && newsData.length === 0 && priceData.length === 0;
+  const showDashboard = hasSearched && !isLoading && selectedTickerData;
+  const showNoResults = hasSearched && !isLoading && (!analysisResult || !analysisResult.tickers || analysisResult.tickers.length === 0);
+
+  const displayTicker = selectedTickerData?.ticker.toUpperCase() || userInput.toUpperCase();
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -173,25 +109,25 @@ export default function MarketMojoDashboard() {
                 <Input
                   type="text"
                   placeholder="e.g., 'TSLA', 'Tata Motors', or 'Apple'"
-                  value={tickerInput}
-                  onChange={(e) => setTickerInput(e.target.value)}
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleViewTicker()}
                   className="bg-background/50 border-border/50 text-base pl-10"
                 />
               </div>
-              <Button onClick={handleViewTicker} disabled={isLoading || !tickerInput} className="px-6">
+              <Button onClick={handleViewTicker} disabled={isLoading || !userInput} className="px-6">
                 {isLoading ? <Loader2 className="animate-spin" /> : 'Analyze'}
               </Button>
             </div>
         </div>
 
-        {hasSearched && !isLoading && rawApiData && (
+        {hasSearched && !isLoading && analysisResult?.rawResponse && (
           <Accordion type="single" collapsible className="w-full mb-8 max-w-3xl mx-auto">
             <AccordionItem value="item-1">
-              <AccordionTrigger>View Fetched API Data</AccordionTrigger>
+              <AccordionTrigger>View Raw API Response</AccordionTrigger>
               <AccordionContent>
                 <pre className="p-4 bg-muted rounded-md text-xs overflow-x-auto">
-                  <code>{JSON.stringify(rawApiData, null, 2)}</code>
+                  <code>{JSON.stringify(analysisResult.rawResponse, null, 2)}</code>
                 </pre>
               </AccordionContent>
             </AccordionItem>
@@ -201,30 +137,23 @@ export default function MarketMojoDashboard() {
         {isLoading && hasSearched ? (
           <div className="text-center py-16">
             <Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" />
-            <p className="text-muted-foreground mt-4">Analyzing {tickerInput}...</p>
+            <p className="text-muted-foreground mt-4">Analyzing {userInput}...</p>
           </div>
         ) : showDashboard ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              {newsData.length > 0 || priceData.length > 0 ? (
-                <>
-                  <HistoricalPriceChart priceData={priceData} sentimentScore={averageSentiment} currency={currency} />
+              <>
+                  <HistoricalPriceChart 
+                    priceData={priceData} 
+                    sentimentScore={selectedTickerData.analysis_summary.average_sentiment_score} 
+                    currency={selectedTickerData.currency} 
+                  />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <InvestmentSuggestion newsData={newsData} />
-                    <SentimentPieChart newsData={newsData} />
+                    <InvestmentSuggestion tickerData={selectedTickerData} />
+                    <SentimentPieChart newsData={selectedTickerData.articles} />
                   </div>
-                  <NewsFeed newsData={newsData.slice(0, 5)} />
-                </>
-              ) : showNoResults ? (
-                 <div className="text-center py-16 bg-card border border-dashed border-border/50 rounded-lg">
-                    <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <h3 className="mt-4 text-lg font-medium text-foreground">No Analysis Found</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Could not retrieve sentiment or price data for <span className="font-semibold text-foreground">{tickerInput}</span>.
-                    </p>
-                    <p className="text-sm text-muted-foreground">This could be due to a lack of recent news or an issue with the data service.</p>
-                 </div>
-              ) : null}
+                  <NewsFeed newsData={selectedTickerData.articles} />
+              </>
             </div>
             <div className="space-y-8">
               <div className="sticky top-24 space-y-8">
@@ -233,6 +162,15 @@ export default function MarketMojoDashboard() {
               </div>
             </div>
           </div>
+        ) : showNoResults ? (
+            <div className="text-center py-16 bg-card border border-dashed border-border/50 rounded-lg max-w-3xl mx-auto">
+               <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
+               <h3 className="mt-4 text-lg font-medium text-foreground">No Analysis Found</h3>
+               <p className="mt-1 text-sm text-muted-foreground">
+                   Could not retrieve sentiment data for <span className="font-semibold text-foreground">{userInput}</span>.
+               </p>
+               <p className="text-sm text-muted-foreground">This could be due to a lack of recent news or an issue with the data service.</p>
+            </div>
         ) : (
           <div className="text-center">
             <TopCompanies onCompanySelect={handleCompanySelect} />
