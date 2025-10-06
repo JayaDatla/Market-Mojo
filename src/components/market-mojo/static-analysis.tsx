@@ -2,16 +2,17 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Building, Lightbulb, Loader2 } from 'lucide-react';
+import { Building, Lightbulb } from 'lucide-react';
 import type { IndustryAnalysis } from '@/types';
 import { Skeleton } from '../ui/skeleton';
 
 interface StaticAnalysisProps {
   isLoading: boolean;
   analysisData?: IndustryAnalysis;
+  companyName?: string;
 }
 
-export default function StaticAnalysis({ isLoading, analysisData }: StaticAnalysisProps) {
+export default function StaticAnalysis({ isLoading, analysisData, companyName }: StaticAnalysisProps) {
 
   if (isLoading) {
     return (
@@ -52,7 +53,7 @@ export default function StaticAnalysis({ isLoading, analysisData }: StaticAnalys
           </CardTitle>
         </CardHeader>
         <CardContent>
-            <p className="text-muted-foreground text-sm">No industry analysis available. This feature may not be supported for all companies.</p>
+            <p className="text-muted-foreground text-sm">Enter a company to see its industry analysis.</p>
         </CardContent>
       </Card>
     );
@@ -63,7 +64,7 @@ export default function StaticAnalysis({ isLoading, analysisData }: StaticAnalys
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
             <Lightbulb className="h-5 w-5 text-primary" />
-            Industry Deep Dive
+            {companyName || 'Industry'} Deep Dive
         </CardTitle>
         <CardDescription>{analysisData.industry}</CardDescription>
       </CardHeader>

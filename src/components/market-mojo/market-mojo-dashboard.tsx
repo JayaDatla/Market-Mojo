@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useTransition, useEffect } from 'react';
 import { fetchAndAnalyzeNews, fetchHistoricalDataAuto } from '@/app/actions';
-import type { TickerAnalysis, TickerAnalysisOutput, PriceData } from '@/types';
+import type { Ticker, TickerAnalysisOutput, PriceData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, BarChart } from 'lucide-react';
 import Header from './header';
@@ -18,6 +18,7 @@ import SentimentPieChart from './sentiment-pie-chart';
 import HistoricalPriceChart from './historical-price-chart';
 import MojoSynthesis from './mojo-synthesis';
 import { Skeleton } from '../ui/skeleton';
+import TickerSelector from './ticker-selector';
 
 // Helper function to calculate a Simple Moving Average (SMA)
 const calculateMovingAverage = (data: PriceData[], windowSize: number): number[] => {
@@ -78,9 +79,10 @@ const calculateTrend = (data: PriceData[]): 'Up' | 'Down' | 'Neutral' => {
 export default function MarketMojoDashboard() {
   const [userInput, setUserInput] = useState('');
   const [analysisResult, setAnalysisResult] = useState<TickerAnalysisOutput | null>(null);
-  const [selectedTickerData, setSelectedTickerData] = useState<TickerAnalysis | null>(null);
+  const [selectedTicker, setSelectedTicker] = useState<Ticker | null>(null);
   const [priceData, setPriceData] = useState<PriceData[]>([]);
   const [priceTrend, setPriceTrend] = useState<'Up' | 'Down' | 'Neutral'>('Neutral');
+  const [isHistoryLoading, setHistoryLoading] = useState(false);
 
   const [isAnalyzing, startTransition] = useTransition();
   const [hasSearched, setHasSearched] = useState(false);
@@ -101,46 +103,53 @@ export default function MarketMojoDashboard() {
 
     startTransition(async () => {
       setHasSearched(true);
-      // Reset states but keep previous data for a smoother transition
       setAnalysisResult(null);
-      setSelectedTickerData(null);
+      setSelectedTicker(null);
       setPriceData([]);
 
-      const analysisPromise = fetchAndAnalyzeNews(input);
-
-      // --- Process Analysis Data ---
-      const analysisData = await analysisPromise;
+      const analysisData = await fetchAndAnalyzeNews(input);
       setAnalysisResult(analysisData);
 
-      if (analysisData && !analysisData.error && analysisData.tickers && analysisData.tickers.length > 0) {
-        const firstTicker = analysisData.tickers[0];
-        setSelectedTickerData(firstTicker);
-        
-        // --- Fetch History Data if company is not private ---
-        if (firstTicker.ticker !== 'PRIVATE') {
-            const historyResult = await fetchHistoricalDataAuto(firstTicker.ticker).catch(e => {
-                console.warn(`Historical data fetch failed for ${firstTicker.ticker}:`, e.message);
-                toast({
-                    variant: 'default',
-                    title: 'Historical Data Notice',
-                    description: `Could not fetch historical price data for ${firstTicker.ticker}.`,
-                });
-                return null;
-            });
-
-            if (historyResult && historyResult.data && historyResult.data.length > 0) {
-                setPriceData(historyResult.data);
-            }
-        }
-      } else {
+      if (analysisData?.error) {
         toast({
           variant: 'destructive',
           title: 'Analysis Failed',
-          description: analysisData?.error || 'No analysis could be performed for this input.',
+          description: analysisData.error || 'No analysis could be performed for this input.',
         });
+        return;
+      }
+
+      if (analysisData?.tickers && analysisData.tickers.length === 1) {
+        const firstTicker = analysisData.tickers[0];
+        handleTickerSelection(firstTicker);
       }
     });
   };
+  
+  const handleTickerSelection = async (ticker: Ticker) => {
+    setSelectedTicker(ticker);
+    setPriceData([]);
+    
+    if (ticker.ticker !== 'PRIVATE') {
+      setHistoryLoading(true);
+      try {
+        const historyResult = await fetchHistoricalDataAuto(ticker.ticker);
+        if (historyResult?.data) {
+          setPriceData(historyResult.data);
+        }
+      } catch (e: any) {
+        console.warn(`Historical data fetch failed for ${ticker.ticker}:`, e.message);
+        toast({
+          variant: 'default',
+          title: 'Historical Data Notice',
+          description: `Could not fetch price data for ${ticker.ticker}.`,
+        });
+      } finally {
+        setHistoryLoading(false);
+      }
+    }
+  };
+
 
   const handleCompanySelect = useCallback((tickerToAnalyze: string) => {
     setUserInput(tickerToAnalyze);
@@ -156,9 +165,9 @@ export default function MarketMojoDashboard() {
 
   const isLoading = isAnalyzing;
   
-  // Determine what to show based on what data is available.
-  const showPriceChart = hasSearched && priceData.length > 0;
-  const showSentimentAnalysis = hasSearched && !isLoading && selectedTickerData && selectedTickerData.articles.length > 0;
+  const showSentimentAnalysis = hasSearched && !isLoading && analysisResult && analysisResult.articles && analysisResult.articles.length > 0;
+  const showDisambiguation = showSentimentAnalysis && analysisResult.tickers && analysisResult.tickers.length > 1 && !selectedTicker;
+  const showPriceChart = selectedTicker && priceData.length > 0;
   const showNoResults = hasSearched && !isLoading && (!analysisResult || !analysisResult.tickers || analysisResult.tickers.length === 0);
 
   return (
@@ -194,27 +203,33 @@ export default function MarketMojoDashboard() {
         ) : hasSearched ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-                {showPriceChart ? (
-                   <HistoricalPriceChart 
-                    priceData={priceData} 
-                    priceTrend={priceTrend}
-                    currency={selectedTickerData?.currency}
-                    exchange={selectedTickerData?.exchange || ''}
-                  />
-                ) : isLoading && selectedTickerData?.ticker !== 'PRIVATE' ? (
-                    <div className="h-[365px] bg-card border-border/50 rounded-xl flex items-center justify-center">
-                        <Loader2 className="animate-spin h-8 w-8 text-primary" />
-                    </div>
-                ): null}
 
-              {showSentimentAnalysis ? (
+              {showDisambiguation && analysisResult.tickers && (
+                <TickerSelector tickers={analysisResult.tickers} onSelect={handleTickerSelection} />
+              )}
+
+              {isHistoryLoading ? (
+                <div className="h-[365px] bg-card border-border/50 rounded-xl flex items-center justify-center">
+                  <Loader2 className="animate-spin h-8 w-8 text-primary" />
+                </div>
+              ) : showPriceChart && selectedTicker ? (
+                 <HistoricalPriceChart 
+                  priceData={priceData} 
+                  priceTrend={priceTrend}
+                  currency={selectedTicker?.currency}
+                  exchange={selectedTicker?.exchange || ''}
+                />
+              ): null}
+
+
+              {showSentimentAnalysis && analysisResult.analysis_summary ? (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <InvestmentSuggestion tickerData={selectedTickerData} />
-                      <SentimentPieChart newsData={selectedTickerData.articles} />
+                      <InvestmentSuggestion analysisSummary={analysisResult.analysis_summary} />
+                      <SentimentPieChart newsData={analysisResult.articles || []} />
                     </div>
-                    {showPriceChart && <MojoSynthesis sentimentAnalysis={selectedTickerData.analysis_summary} priceTrend={priceTrend} />}
-                    <NewsFeed newsData={selectedTickerData.articles} />
+                    {showPriceChart && <MojoSynthesis sentimentAnalysis={analysisResult.analysis_summary} priceTrend={priceTrend} />}
+                    <NewsFeed newsData={analysisResult.articles || []} />
                   </>
                 ) : isLoading ? (
                      <div className="space-y-8">
@@ -253,6 +268,7 @@ export default function MarketMojoDashboard() {
                <StaticAnalysis 
                 isLoading={isLoading && !analysisResult}
                 analysisData={analysisResult?.industryAnalysis} 
+                companyName={analysisResult?.company}
               />
               <TopCompanies onCompanySelect={handleCompanySelect} />
             </div>

@@ -4,12 +4,12 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { TickerAnalysis } from '@/types';
+import type { AnalysisSummary } from '@/types';
 import { ChevronsUp, ChevronUp, ChevronsDown, ChevronDown, Minus, Award } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface InvestmentSuggestionProps {
-  tickerData: TickerAnalysis;
+  analysisSummary: AnalysisSummary;
 }
 
 type SuggestionLevel = 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
@@ -27,14 +27,14 @@ const suggestionStyles: Record<SuggestionLevel, {
 };
 
 
-export default function InvestmentSuggestion({ tickerData }: InvestmentSuggestionProps) {
+export default function InvestmentSuggestion({ analysisSummary }: InvestmentSuggestionProps) {
 
   const { suggestion, confidence, confidenceValue } = useMemo(() => {
-    if (!tickerData?.analysis_summary?.average_sentiment_score) {
+    if (!analysisSummary?.average_sentiment_score) {
       return { suggestion: null, confidence: null, confidenceValue: 0 };
     }
 
-    const { average_sentiment_score } = tickerData.analysis_summary;
+    const { average_sentiment_score } = analysisSummary;
     
     let level: SuggestionLevel = 'Hold';
     let conf: ConfidenceLevel = 'Low';
@@ -63,14 +63,14 @@ export default function InvestmentSuggestion({ tickerData }: InvestmentSuggestio
         confidence: conf,
         confidenceValue: confValue,
     };
-  }, [tickerData]);
+  }, [analysisSummary]);
 
-  if (!suggestion || !tickerData.analysis_summary) {
+  if (!suggestion || !analysisSummary) {
     return null;
   }
   
   const style = suggestionStyles[suggestion];
-  const { average_sentiment_score, investor_outlook } = tickerData.analysis_summary;
+  const { average_sentiment_score, investor_outlook } = analysisSummary;
 
   const hasValidScore = typeof average_sentiment_score === 'number';
 

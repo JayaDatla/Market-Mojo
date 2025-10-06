@@ -1,4 +1,5 @@
 
+
 export type Sentiment = 'Positive' | 'Neutral' | 'Negative';
 
 export type NewsArticle = {
@@ -15,12 +16,10 @@ export type AnalysisSummary = {
   investor_outlook: string;
 };
 
-export type TickerAnalysis = {
+export type Ticker = {
   ticker: string;
   exchange: string;
   currency: string;
-  articles: NewsArticle[];
-  analysis_summary: AnalysisSummary;
 };
 
 export type IndustryAnalysis = {
@@ -33,7 +32,9 @@ export type IndustryAnalysis = {
 export type TickerAnalysisOutput = {
   company?: string;
   industryAnalysis?: IndustryAnalysis;
-  tickers?: TickerAnalysis[];
+  tickers?: Ticker[];
+  articles?: NewsArticle[];
+  analysis_summary?: AnalysisSummary;
   error?: string;
   rawResponse?: any;
 };
