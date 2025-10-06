@@ -25,8 +25,6 @@ const renderActiveShape = (props: any) => {
       startAngle,
       endAngle,
       fill,
-      payload,
-      percent
     } = props;
 
 
@@ -155,6 +153,20 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
                     </>
                 )}
             </div>
+        </div>
+        <div className="flex justify-center items-center gap-4 pt-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: sentimentConfig.Positive.color }}></div>
+            <span>Positive</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: sentimentConfig.Neutral.color }}></div>
+            <span>Neutral</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: sentimentConfig.Negative.color }}></div>
+            <span>Negative</span>
+          </div>
         </div>
       </CardContent>
     </Card>
