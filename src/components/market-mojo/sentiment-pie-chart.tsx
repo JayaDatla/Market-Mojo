@@ -71,6 +71,7 @@ export default function SentimentPieChart({ newsData }: SentimentPieChartProps) 
                 outerRadius={100}
                 fill="#8884d8"
                 dataKey="value"
+                stroke="none"
                 filter="url(#pie-shadow)"
               >
                 {sentimentDistribution.map((entry, index) => (
