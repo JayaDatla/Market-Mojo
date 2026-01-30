@@ -23,7 +23,7 @@ ${validatedTicker ? `We have validated this refers to the following publicly tra
 
 Focus your analysis exclusively on this company. If the identifier refers to a private company (like 'Zerodha' or 'Stripe'), state that clearly and perform the news analysis without focusing on stock market data.
 
-First, perform a general news sentiment analysis. Search for the top 5 most recent credible news articles from the past 30 days related to the company's financial performance or material developments.
+First, perform a general news sentiment analysis. Search for the top most recent credible news articles from the past 30 days related to the company's financial performance or material developments.
 
 Analyze each article for its relevance to investor perception. For each article, return:
 - title
@@ -32,7 +32,7 @@ Analyze each article for its relevance to investor perception. For each article,
 - sentiment classification: "Positive", "Negative", or "Neutral"
 - sentiment_score: a numeric value from -1.0 (strongly negative) to 1.0 (strongly positive)
 
-After processing all articles (maximum 5), compute a summary of the overall sentiment, including:
+After processing all articles , compute a summary of the overall sentiment, including:
 - the average sentiment score
 - the dominant sentiment classification
 - a brief 2–3 sentence summary of the general investor outlook for the company over the past 30 days.
